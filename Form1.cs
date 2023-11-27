@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
 using System.Drawing;
@@ -20,13 +22,14 @@ namespace CGATest
     public partial class Form1 : Form
     {
         static int width = 1500, height = 500;
-        Bitmap newframe = new Bitmap(1500, 500);
+        volatile Bitmap newframe = new Bitmap(1500, 500);
 
-        StreamReader vIn;
-        //StreamReader vIn = new StreamReader(Console.OpenStandardInput(), System.Text.Encoding.Latin1, bufferSize: 128000);
+        public volatile StreamReader vIn;
+        public volatile ConcurrentQueue<int> bufferedData = new ConcurrentQueue<int>();
+        static int maxBuffer = 300000;
 
         bool endofstream = false;
-        int TB1 = 0, TB2 = 0, screens = 0;
+        public volatile int TB1 = 0, TB2 = 0, TB3 = 0, screens = 0;
 
         int xposmax = 0, yposmax = 0, xposmax_b = 1, yposmax_b = 1, yposA = 0;
 
@@ -40,9 +43,16 @@ namespace CGATest
         // Color Mode 0-RGB, 1-MDA, 2-CGA, 3-EGA
         int colorMode = 0;
 
+        // size
+        bool originalSize = false;
+        int xResize = 1024, yResize = 768;
+
         //Composite Stuff
         int syncpulses = 0, sync_long = 0, sync_short = 0;
-        bool composite_sync = true;
+        bool composite_sync = false;
+
+        // process
+        volatile ConcurrentQueue<int> processIds = new ConcurrentQueue<int>();
 
         public Form1()
         {
@@ -56,7 +66,6 @@ namespace CGATest
             ftTimer.Start();
 
             pictureBox1.SizeMode = PictureBoxSizeMode.CenterImage;
-
         }
 
 
@@ -66,46 +75,115 @@ namespace CGATest
 
             textBox1.Text = TB1.ToString();
             textBox2.Text = TB2.ToString();
+            //textBox4.Text = TB3.ToString();
             screens = 0;
         }
 
 
-        private void TShowPic()
+        private async void TShowPic()
         {
-            try
+            Bitmap? resized = null;
+
+            var t = Task.Run(() =>
             {
                 while (true)
                 {
-                    this.Invoke(() =>
-                    {
+                    if (newframe != null)
+                        if (originalSize)
                         {
-
-
-                            Bitmap resized = new Bitmap(newframe, new Size(1024, 768));
-                            //RectangleF cloneRect = new RectangleF(0, 0, 1024, 768);
-                            pictureBox1.Image = (Bitmap)resized.Clone();
-
-
-                            //pictureBox1.Image = (Bitmap)newframe.Clone();
-
+                            pictureBox1.Image = (Bitmap)newframe.Clone();
                         }
-                    });
+                        else
+                        {
+                            resized = new Bitmap(newframe, new Size(xResize, yResize));
+                            pictureBox1.Image = (Bitmap)resized.Clone();
+                        }
+
+                    // Wait for a 50Hz refresh
                     Thread.Sleep(20);
                 }
             }
-            catch (Exception e) { }
+            );
         }
-        //
+
+
+        // Read input stream to buffer
+        private async void TBufferInput()
+        {
+
+            Process sigrok = null;
+            int buffSize = 32;
+            int maxBuff = 2000000;
+            bool loop = true;
+            int readchar = 0;
+            char[] c = new char[buffSize];
+
+
+
+            string[] args = Environment.GetCommandLineArgs();
+            if (args.Length == 1) // do we start sigrok on our own?
+            {
+                Console.WriteLine("Starting Sigrok");
+
+                // Sigrok process start
+                var startSigrok = new ProcessStartInfo
+                {
+                    FileName = @"C:\Program Files\sigrok\sigrok-cli\sigrok-cli",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    WorkingDirectory = @"C:\Program Files\sigrok\sigrok-cli\",
+                    Arguments = @"-d fx2lafw -O binary --config ""samplerate=24 MHz"" --continuous",
+                    StandardOutputEncoding = Encoding.Latin1 // required to get only one byte per char
+                };
+
+                sigrok = Process.Start(startSigrok);
+
+                sigrok.PriorityClass = ProcessPriorityClass.High;
+
+                // Queue Id for later housekeeping
+                processIds.Enqueue(sigrok.Id);
+
+                // Attach sigrok to stdout
+                vIn = sigrok.StandardOutput;
+            }
+            else
+                // or is there a pipe?
+                if (args[1] == "-")
+            {
+                vIn = new StreamReader(Console.OpenStandardInput(), System.Text.Encoding.Latin1, bufferSize: 131072);
+            }
+            else
+            {
+                Console.WriteLine("Only \"-\" is allowed for standard-in. Exiting.");
+                Application.Exit();
+            }
+
+            while (loop && vIn != null)
+            {
+                readchar = await vIn.ReadAsync(c, 0, buffSize);
+                TB3 = bufferedData.Count;
+                // if (TB3<maxBuff) 
+                for (int i = 0; i < readchar; i++) bufferedData.Enqueue(c[i]);
+
+            }
+        }
 
 
         private async void Form1_Shown(object sender, EventArgs e)
         {
             //Start the thing
-            Main(sender, e);
+            await Main(sender, e);
         }
 
         public async Task Main(object sender, EventArgs e)
         {
+            /*
+             * 
+             * Probably better placed where the data is actuall read
+             * 
+             * 
+             * 
+            Process sigrok = null;
             // readm cmd
             string[] args = Environment.GetCommandLineArgs();
             if (args.Length == 1) // do we start sigrok on our own?
@@ -120,24 +198,30 @@ namespace CGATest
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     WorkingDirectory = @"C:\Program Files\sigrok\sigrok-cli\",
-                    Arguments = @"-d fx2lafw -O binary --config ""samplerate=12 MHz"" --continuous",
+                    Arguments = @"-d fx2lafw -O binary --config ""samplerate=16 MHz"" --continuous",
                     StandardOutputEncoding = Encoding.Latin1
                 };
-                var sigrok = Process.Start(startSigrok);
+
+                sigrok = Process.Start(startSigrok);
+
+                sigrok.PriorityClass = ProcessPriorityClass.High;
+                processIds.Enqueue(sigrok.Id);
+
                 // Attach stdout
                 vIn = sigrok.StandardOutput;
+
             }
             else
                 if (args[1] == "-")
             {
-                vIn = new StreamReader(Console.OpenStandardInput(), System.Text.Encoding.Latin1, bufferSize: 128000); // or is there a pipe?
+                vIn = new StreamReader(Console.OpenStandardInput(), System.Text.Encoding.Latin1, bufferSize: 131072); // or is there a pipe?
             }
             else
             {
                 Console.WriteLine("Only \"-\" is allowed for standard-in. Exiting.");
-                System.Windows.Forms.Application.Exit();
+                Application.Exit();
             }
-
+            */
 
             Bitmap newpic = null;
 
@@ -147,7 +231,7 @@ namespace CGATest
 
             // Starting thread to display frames
             new Thread(this.TShowPic).Start();
-
+            new Thread(this.TBufferInput).Start();
 
             // Starting stream read
             while (!endofstream)
@@ -198,7 +282,7 @@ namespace CGATest
         {
             //Bitmap bmp = new Bitmap(width, (yposmax > 200 ? yposmax : 200));
             Bitmap bmp = new Bitmap((xposmax_b > 10 ? xposmax : 10), (yposmax_b > 10 ? yposmax_b : 10));
-            int readchar;
+            int readchar, readFail;
             int rawdata = 0;
             bool hsync_raw = false, vsync_raw = false;
             bool hsync = false, vsync = false;
@@ -206,10 +290,14 @@ namespace CGATest
             int xpos = 0, ypos = 0;
             int color;
             int hsync_filter = 0, vsync_filter = 0;
+
+            // Colors incl. intensity bits
+            byte redL = 0, greenL = 0, blueL = 0, redH = 0, greenH = 0, blueH = 0;
             byte red = 0, green = 0, blue = 0;
+
             bool loop = true;
             bool vcompositeflag = false, armed = false;
-            int x = 0;
+
 
             //experiment
             BitmapData data = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, PixelFormat.Format24bppRgb);
@@ -218,78 +306,133 @@ namespace CGATest
 
             await Task.Run(() =>
             {
-                while (loop)
+            while (loop)
+            {
+
+                // A timeout in case no data is added to the queue. Multibyte read-async can get stuck then
+                readFail = 0;
+                while (!bufferedData.TryDequeue(out readchar))
                 {
-                    readchar = vIn.Read();
-                    if (readchar == -1)
+                    readFail++;
+                    if (readFail > 100)
                     {
-                        loop = false;
-                        endofstream = true;
+                        readchar = -1;
+                        break;
                     }
-                    else
-                    {
-                        rawdata = readchar;
-                    }
+                    // Give it some time
+                    Thread.Sleep(50);
+                }
 
-                    // Safe former sync state
-                    vsyncc = vsync; hsyncc = hsync;
+                // Catch standard case of file end
+                if (readchar == -1)
+                {
+                    loop = false;
+                    endofstream = true;
+                    break;
+                }
+                else
+                {
+                    rawdata = readchar;
+                }
 
-                    // Extract Sync Signal
-                    vsync_raw = (rawdata & 128) > 0;
-                    hsync_raw = (rawdata & 64) > 0;
+                // Safe former sync state
+                vsyncc = vsync; hsyncc = hsync;
 
-                    //invert sync signal if required
-                    if (invert_sync)
-                    {
-                        hsync_raw = !hsync_raw;
-                        vsync_raw = !vsync_raw;
-                    }
+                // Extract Sync Signal
+                vsync_raw = (rawdata & 128) > 0;
+                hsync_raw = (rawdata & 64) > 0;
+
+                //invert sync signal if required
+                if (invert_sync)
+                {
+                    hsync_raw = !hsync_raw;
+                    vsync_raw = !vsync_raw;
+                }
 
 
-                    // Extract Color 
-                    if (invert_color)
-                        color = (int)rawdata ^ 0x3F;
-                    else
-                        color = (int)rawdata & 0x3F;
+                // Extract Color 
+                if (invert_color)
+                    color = (int)rawdata ^ 0x3F;
+                else
+                    color = (int)rawdata & 0x3F;
 
-                    // Generic bit shifting to extract color bits
-                    blue = (byte)(127 * (byte)(color & 1));
-                    color = color >> 1;
-                    green = (byte)(127 * (byte)(color & 1));
-                    color = color >> 1;
-                    red = (byte)(127 * (byte)(color & 1));
+                /*
+                // Generic bit shifting to extract color bits
+                blue = (byte)(127 * (byte)(color & 1));
+                color = color >> 1;
+                green = (byte)(127 * (byte)(color & 1));
+                color = color >> 1;
+                red = (byte)(127 * (byte)(color & 1));
+
+                switch (colorMode)
+                {
+                    case 0: //RGB is just one intensity level
+                        red = (byte)(red * 2);
+                        green = (byte)(green * 2);
+                        blue = (byte)(blue * 2);
+                        break;
+                    case 1: // MDA relies on green and intensity on green
+                        color = color >> 1;
+                        green = (byte)(green * ((byte)(color & 1) + 1));
+                        blue = green;
+                        red = green;
+                        break;
+                    case 2: // CGA has intensity as well (on green)
+                        color = color >> 1;
+                        blue = (byte)(blue * ((byte)(color & 1) + 1));
+                        green = (byte)(green * ((byte)(color & 1) + 1));
+                        red = (byte)(red * ((byte)(color & 1) + 1));
+                        break;
+                    case 3: // For EGA
+                        color = color >> 1;
+                        green = (byte)(green * ((byte)(color & 1) + 1));
+                        color = color >> 1;
+                        red = (byte)(red * ((byte)(color & 1) + 1));
+                        color = color >> 1;
+                        blue = (byte)(blue * ((byte)(color & 1) + 1));
+                        break;
+                }*/
+
+                //Low bits
+                blueL = (byte)(color & 1);
+                color = color >> 1;
+                greenL = (byte)(color & 1);
+                color = color >> 1;
+                redL = (byte)(color & 1);
+                //High bits (intensity)
+                color = color >> 1;
+                greenH = (byte)(color & 1);
+                color = color >> 1;
+                redH = (byte)(color & 1);
+                color = color >> 1;
+                blueH = (byte)(color & 1);
 
                     switch (colorMode)
                     {
                         case 0: //RGB is just one intensity level
-                            red = (byte)(red * 2);
-                            green = (byte)(green * 2);
-                            blue = (byte)(blue * 2);
+                            red = (byte)(redL * 255);
+                            green = (byte)(greenL * 255);
+                            blue = (byte)(blueL * 255);
                             break;
                         case 1: // MDA relies on green and intensity on green
-                            color = color >> 1;
-                            green = (byte)(green * ((byte)(color & 1) + 1));
+                            green = (byte)((greenL * 170) + (greenH * 85));
                             blue = green;
                             red = green;
                             break;
                         case 2: // CGA has intensity as well (on green)
-                            color = color >> 1;
-                            blue = (byte)(blue * ((byte)(color & 1) + 1));
-                            green = (byte)(green * ((byte)(color & 1) + 1));
-                            red = (byte)(red * ((byte)(color & 1) + 1));
+                            red = (byte)((redL * 170) + (greenH * 85));
+                            green = (byte)((greenL * 170) + (greenH * 85));
+                            blue = (byte)((blueL * 170) + (greenH * 85));
                             break;
                         case 3: // For EGA
-                            color = color >> 1;
-                            green = (byte)(green * ((byte)(color & 1) + 1));
-                            color = color >> 1;
-                            red = (byte)(red * ((byte)(color & 1) + 1));
-                            color = color >> 1;
-                            blue = (byte)(blue * ((byte)(color & 1) + 1));
+                            green = (byte)(85 * ((greenL) | (greenH << 1)));
+                            blue = (byte)(85 * ((blueL) | (blueH << 1)));
+                            red = (byte)(85 * ((redL) | (redH << 1)));
                             break;
                     }
 
 
-                    // Remove Sync Noise by scanning 3 subsequent signals
+                    // Remove Sync Noise by scanning 3 subsequent signals (filterbits set to b111 dec7
                     vsync_filter = vsync_filter << 1;
                     hsync_filter = hsync_filter << 1;
                     vsync_filter = (vsync_filter | (vsync_raw ? 1 : 0));
@@ -300,25 +443,31 @@ namespace CGATest
                     //composite handling
                     if (composite_sync)
                     {
+                        // Count the time the sync signal is present
                         if (vsync) syncpulses++;
                         else
                         {
+                            // We have no signal now....
+
+                            // Get a high watermark for vsync
                             if (syncpulses > sync_long)
                             {
                                 sync_long = syncpulses;
                             }
 
+                            // If we just got a smal sync, arm the system for an upcoming hsync
                             if (syncpulses > 0 && syncpulses < (sync_long / 10))
                             {
                                 armed = true;
                             }
 
+                            // Armed and a long sync pulse -> vsync 
                             if (armed && (syncpulses > (sync_long * 0.9)))
                             {
                                 vcompositeflag = true;
                                 armed = false;
                             }
-                            else
+                            else // Special case inverted hysnc during vsync, keep sync signal active to fill the gap
                                 if (!armed) vsync = true;
 
                             syncpulses = 0;
@@ -349,7 +498,7 @@ namespace CGATest
                             {
                                 if (xpos < width)
                                 {
-                                    if (xpos < xposmax_b && ypos < yposmax_b)
+                                    if (xpos < xposmax_b && ypos < yposmax_b) // Within defined bitmap ?
                                         // Fast setpixel 
                                         unsafe
                                         {
@@ -371,7 +520,7 @@ namespace CGATest
             TB1 = xposmax;
             TB2 = yposmax;
 
-            if (xposmax_b < 10 || yposmax_b < 10) return null; // received fram too small, discard
+            if (xposmax_b < 10 || yposmax_b < 10) return null; // received frame is too small, discard
             else
             {
                 //experiment
@@ -393,12 +542,21 @@ namespace CGATest
             //vIn.DiscardBufferedData();
         }
 
-        private async void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
+            int p = -1;
 
-            System.Threading.Thread.Sleep(1000);
-            System.Windows.Forms.Application.ExitThread();
-            System.Windows.Forms.Application.Exit();
+            processIds.TryDequeue(out p);
+            Console.WriteLine("Closing and shutting down " + p.ToString());
+
+            // Housekeeping, kill sigrok process if present
+            try
+            {
+                Process processes = Process.GetProcessById(p);
+                if (p != 0) processes.Kill();
+            }
+            catch (Exception ex) { Console.WriteLine(ex.Message); }
+
         }
 
 
@@ -442,6 +600,48 @@ namespace CGATest
             colorMode = 3;
         }
 
+        private void radioButton6_CheckedChanged(object sender, EventArgs e)
+        {
+            originalSize = true;
+        }
+
+        private void radioButton7_CheckedChanged(object sender, EventArgs e)
+        {
+            originalSize = false;
+        }
+
+        private void textBox5_TextChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                int xr = Convert.ToInt16(textBox5.Text);
+
+                if (xr > 0)
+                {
+                    originalSize = false;
+                    radioButton6.Checked = false;
+                    radioButton7.Checked = true;
+                    xResize = xr;
+                }
+            } catch { textBox5.Text = ""; }
+        }
+
+        private void textBox6_TextChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                int yr = Convert.ToInt16(textBox6.Text);
+
+                if (yr > 0)
+                {
+                    originalSize = false;
+                    radioButton6.Checked = false;
+                    radioButton7.Checked = true;
+                    yResize = yr;
+                }
+            }
+            catch { textBox6.Text = ""; } 
+        }
     }
 
 }

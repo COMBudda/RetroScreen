@@ -37,6 +37,13 @@
             timer1 = new System.Windows.Forms.Timer(components);
             label1 = new Label();
             panel1 = new Panel();
+            groupBox3 = new GroupBox();
+            label5 = new Label();
+            label4 = new Label();
+            radioButton7 = new RadioButton();
+            radioButton6 = new RadioButton();
+            textBox6 = new TextBox();
+            textBox5 = new TextBox();
             groupBox1 = new GroupBox();
             radioButton5 = new RadioButton();
             radioButton4 = new RadioButton();
@@ -50,6 +57,7 @@
             label2 = new Label();
             ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
             panel1.SuspendLayout();
+            groupBox3.SuspendLayout();
             groupBox1.SuspendLayout();
             groupBox2.SuspendLayout();
             SuspendLayout();
@@ -61,7 +69,7 @@
             pictureBox1.BorderStyle = BorderStyle.Fixed3D;
             pictureBox1.Location = new Point(0, 0);
             pictureBox1.Name = "pictureBox1";
-            pictureBox1.Size = new Size(2027, 1261);
+            pictureBox1.Size = new Size(1652, 1233);
             pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
             pictureBox1.TabIndex = 0;
             pictureBox1.TabStop = false;
@@ -118,6 +126,7 @@
             // 
             // panel1
             // 
+            panel1.Controls.Add(groupBox3);
             panel1.Controls.Add(groupBox1);
             panel1.Controls.Add(checkBox3);
             panel1.Controls.Add(checkBox2);
@@ -125,10 +134,88 @@
             panel1.Controls.Add(radioButton1);
             panel1.Controls.Add(groupBox2);
             panel1.Dock = DockStyle.Right;
-            panel1.Location = new Point(2019, 0);
+            panel1.Location = new Point(1644, 0);
             panel1.Name = "panel1";
-            panel1.Size = new Size(218, 1261);
+            panel1.Size = new Size(218, 1233);
             panel1.TabIndex = 7;
+            // 
+            // groupBox3
+            // 
+            groupBox3.BackColor = Color.SkyBlue;
+            groupBox3.Controls.Add(label5);
+            groupBox3.Controls.Add(label4);
+            groupBox3.Controls.Add(radioButton7);
+            groupBox3.Controls.Add(radioButton6);
+            groupBox3.Controls.Add(textBox6);
+            groupBox3.Controls.Add(textBox5);
+            groupBox3.Location = new Point(0, 457);
+            groupBox3.Name = "groupBox3";
+            groupBox3.Size = new Size(218, 229);
+            groupBox3.TabIndex = 18;
+            groupBox3.TabStop = false;
+            groupBox3.Text = "Size";
+            // 
+            // label5
+            // 
+            label5.AutoSize = true;
+            label5.Location = new Point(24, 139);
+            label5.Name = "label5";
+            label5.Size = new Size(22, 25);
+            label5.TabIndex = 5;
+            label5.Text = "Y";
+            // 
+            // label4
+            // 
+            label4.AutoSize = true;
+            label4.Location = new Point(23, 102);
+            label4.Name = "label4";
+            label4.Size = new Size(23, 25);
+            label4.TabIndex = 4;
+            label4.Text = "X";
+            // 
+            // radioButton7
+            // 
+            radioButton7.AutoSize = true;
+            radioButton7.Checked = true;
+            radioButton7.Location = new Point(22, 64);
+            radioButton7.Name = "radioButton7";
+            radioButton7.Size = new Size(118, 29);
+            radioButton7.TabIndex = 3;
+            radioButton7.TabStop = true;
+            radioButton7.Text = "Resized to";
+            radioButton7.UseVisualStyleBackColor = true;
+            radioButton7.CheckedChanged += radioButton7_CheckedChanged;
+            // 
+            // radioButton6
+            // 
+            radioButton6.AutoSize = true;
+            radioButton6.Location = new Point(22, 30);
+            radioButton6.Name = "radioButton6";
+            radioButton6.Size = new Size(99, 29);
+            radioButton6.TabIndex = 2;
+            radioButton6.Text = "Original";
+            radioButton6.UseVisualStyleBackColor = true;
+            radioButton6.CheckedChanged += radioButton6_CheckedChanged;
+            // 
+            // textBox6
+            // 
+            textBox6.Location = new Point(85, 136);
+            textBox6.Name = "textBox6";
+            textBox6.Size = new Size(71, 31);
+            textBox6.TabIndex = 1;
+            textBox6.Text = "768";
+            textBox6.TextAlign = HorizontalAlignment.Right;
+            textBox6.TextChanged += textBox6_TextChanged;
+            // 
+            // textBox5
+            // 
+            textBox5.Location = new Point(85, 99);
+            textBox5.Name = "textBox5";
+            textBox5.Size = new Size(71, 31);
+            textBox5.TabIndex = 0;
+            textBox5.Text = "1024";
+            textBox5.TextAlign = HorizontalAlignment.Right;
+            textBox5.TextChanged += textBox5_TextChanged;
             // 
             // groupBox1
             // 
@@ -149,9 +236,9 @@
             radioButton5.AutoSize = true;
             radioButton5.Location = new Point(22, 146);
             radioButton5.Name = "radioButton5";
-            radioButton5.Size = new Size(70, 29);
+            radioButton5.Size = new Size(116, 29);
             radioButton5.TabIndex = 3;
-            radioButton5.Text = "EGA";
+            radioButton5.Text = "EGA (true)";
             radioButton5.UseVisualStyleBackColor = true;
             radioButton5.CheckedChanged += radioButton5_CheckedChanged;
             // 
@@ -160,9 +247,9 @@
             radioButton4.AutoSize = true;
             radioButton4.Location = new Point(22, 111);
             radioButton4.Name = "radioButton4";
-            radioButton4.Size = new Size(72, 29);
+            radioButton4.Size = new Size(176, 29);
             radioButton4.TabIndex = 2;
-            radioButton4.Text = "CGA";
+            radioButton4.Text = "CGA (compatible)";
             radioButton4.UseVisualStyleBackColor = true;
             radioButton4.CheckedChanged += radioButton4_CheckedChanged;
             // 
@@ -194,8 +281,6 @@
             // checkBox3
             // 
             checkBox3.AutoSize = true;
-            checkBox3.Checked = true;
-            checkBox3.CheckState = CheckState.Checked;
             checkBox3.Location = new Point(22, 194);
             checkBox3.Name = "checkBox3";
             checkBox3.Size = new Size(166, 29);
@@ -236,7 +321,7 @@
             groupBox2.Controls.Add(textBox3);
             groupBox2.Controls.Add(label1);
             groupBox2.Dock = DockStyle.Bottom;
-            groupBox2.Location = new Point(0, 952);
+            groupBox2.Location = new Point(0, 924);
             groupBox2.Name = "groupBox2";
             groupBox2.Size = new Size(218, 309);
             groupBox2.TabIndex = 16;
@@ -265,15 +350,18 @@
             // 
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(2237, 1261);
+            ClientSize = new Size(1862, 1233);
             Controls.Add(panel1);
             Controls.Add(pictureBox1);
             Name = "Form1";
-            Text = "Form1";
+            Text = "RetroScreen";
+            FormClosing += Form1_FormClosing;
             Shown += Form1_Shown;
             ((System.ComponentModel.ISupportInitialize)pictureBox1).EndInit();
             panel1.ResumeLayout(false);
             panel1.PerformLayout();
+            groupBox3.ResumeLayout(false);
+            groupBox3.PerformLayout();
             groupBox1.ResumeLayout(false);
             groupBox1.PerformLayout();
             groupBox2.ResumeLayout(false);
@@ -303,5 +391,12 @@
         private Label label3;
         private Label label2;
         private GroupBox groupBox2;
+        private GroupBox groupBox3;
+        private RadioButton radioButton7;
+        private RadioButton radioButton6;
+        private TextBox textBox6;
+        private TextBox textBox5;
+        private Label label5;
+        private Label label4;
     }
 }
