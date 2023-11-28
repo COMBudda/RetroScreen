@@ -177,52 +177,6 @@ namespace CGATest
 
         public async Task Main(object sender, EventArgs e)
         {
-            /*
-             * 
-             * Probably better placed where the data is actuall read
-             * 
-             * 
-             * 
-            Process sigrok = null;
-            // readm cmd
-            string[] args = Environment.GetCommandLineArgs();
-            if (args.Length == 1) // do we start sigrok on our own?
-            {
-
-                Console.WriteLine("Starting Sigrok");
-
-                // Sigrok process start
-                var startSigrok = new ProcessStartInfo
-                {
-                    FileName = @"C:\Program Files\sigrok\sigrok-cli\sigrok-cli",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    WorkingDirectory = @"C:\Program Files\sigrok\sigrok-cli\",
-                    Arguments = @"-d fx2lafw -O binary --config ""samplerate=16 MHz"" --continuous",
-                    StandardOutputEncoding = Encoding.Latin1
-                };
-
-                sigrok = Process.Start(startSigrok);
-
-                sigrok.PriorityClass = ProcessPriorityClass.High;
-                processIds.Enqueue(sigrok.Id);
-
-                // Attach stdout
-                vIn = sigrok.StandardOutput;
-
-            }
-            else
-                if (args[1] == "-")
-            {
-                vIn = new StreamReader(Console.OpenStandardInput(), System.Text.Encoding.Latin1, bufferSize: 131072); // or is there a pipe?
-            }
-            else
-            {
-                Console.WriteLine("Only \"-\" is allowed for standard-in. Exiting.");
-                Application.Exit();
-            }
-            */
-
             Bitmap newpic = null;
 
             radioButton1.ForeColor = Color.Green;
@@ -355,43 +309,6 @@ namespace CGATest
                     color = (int)rawdata ^ 0x3F;
                 else
                     color = (int)rawdata & 0x3F;
-
-                /*
-                // Generic bit shifting to extract color bits
-                blue = (byte)(127 * (byte)(color & 1));
-                color = color >> 1;
-                green = (byte)(127 * (byte)(color & 1));
-                color = color >> 1;
-                red = (byte)(127 * (byte)(color & 1));
-
-                switch (colorMode)
-                {
-                    case 0: //RGB is just one intensity level
-                        red = (byte)(red * 2);
-                        green = (byte)(green * 2);
-                        blue = (byte)(blue * 2);
-                        break;
-                    case 1: // MDA relies on green and intensity on green
-                        color = color >> 1;
-                        green = (byte)(green * ((byte)(color & 1) + 1));
-                        blue = green;
-                        red = green;
-                        break;
-                    case 2: // CGA has intensity as well (on green)
-                        color = color >> 1;
-                        blue = (byte)(blue * ((byte)(color & 1) + 1));
-                        green = (byte)(green * ((byte)(color & 1) + 1));
-                        red = (byte)(red * ((byte)(color & 1) + 1));
-                        break;
-                    case 3: // For EGA
-                        color = color >> 1;
-                        green = (byte)(green * ((byte)(color & 1) + 1));
-                        color = color >> 1;
-                        red = (byte)(red * ((byte)(color & 1) + 1));
-                        color = color >> 1;
-                        blue = (byte)(blue * ((byte)(color & 1) + 1));
-                        break;
-                }*/
 
                 //Low bits
                 blueL = (byte)(color & 1);
