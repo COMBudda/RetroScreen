@@ -14,6 +14,11 @@ using System.Text;
 using System.Windows.Forms;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
+// Saleae SDK
+using System;
+using System.Collections.Generic;
+using SaleaeDeviceSdkDotNet;
+
 
 
 namespace CGATest
@@ -54,6 +59,12 @@ namespace CGATest
         // process
         volatile ConcurrentQueue<int> processIds = new ConcurrentQueue<int>();
 
+        //Saleae
+        UInt32 mSampleRateHz = 24000000;
+        MLogic mLogic;
+        MLogic16 mLogic16;
+        byte mWriteValue = 0;
+        bool restartRequired = true;
         public Form1()
         {
 
@@ -80,7 +91,7 @@ namespace CGATest
         }
 
 
-        private async void TShowPic()
+        private void TShowPic()
         {
             Bitmap? resized = null;
 
@@ -107,10 +118,10 @@ namespace CGATest
         }
 
 
-        // Read input stream to buffer
+        // Read input stream to buffer 
         private async void TBufferInput()
         {
-
+            
             Process sigrok = null;
             int buffSize = 32;
             int maxBuff = 2000000;
@@ -118,27 +129,26 @@ namespace CGATest
             int readchar = 0;
             char[] c = new char[buffSize];
 
-
-
-            string[] args = Environment.GetCommandLineArgs();
+            /*
             if (args.Length == 1) // do we start sigrok on our own?
             {
-                Console.WriteLine("Starting Sigrok");
-
+               Console.WriteLine("Starting Sigrok");
+                
                 // Sigrok process start
-                var startSigrok = new ProcessStartInfo
+                
+                 var startSigrok = new ProcessStartInfo
                 {
                     FileName = @"C:\Program Files\sigrok\sigrok-cli\sigrok-cli",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
                     WorkingDirectory = @"C:\Program Files\sigrok\sigrok-cli\",
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true,
                     Arguments = @"-d fx2lafw -O binary --config ""samplerate=24 MHz"" --continuous",
                     StandardOutputEncoding = Encoding.Latin1 // required to get only one byte per char
                 };
 
                 sigrok = Process.Start(startSigrok);
 
-                sigrok.PriorityClass = ProcessPriorityClass.High;
+                sigrok.PriorityClass = ProcessPriorityClass.RealTime;
 
                 // Queue Id for later housekeeping
                 processIds.Enqueue(sigrok.Id);
@@ -156,7 +166,10 @@ namespace CGATest
             {
                 Console.WriteLine("Only \"-\" is allowed for standard-in. Exiting.");
                 Application.Exit();
-            }
+            }*/
+               
+            vIn = new StreamReader(Console.OpenStandardInput(), System.Text.Encoding.Latin1, bufferSize: 131072);
+
 
             while (loop && vIn != null)
             {
@@ -168,13 +181,118 @@ namespace CGATest
             }
         }
 
+        private async void TSaleaeWatchdog()
+        {
+            await Task.Run(() =>
+            {
+                while (true)
+                {
+                    if (restartRequired) mLogic.ReadStart();
+                    restartRequired = false;
+                    Thread.Sleep(100);
+                }
+            });
+        }
 
         private async void Form1_Shown(object sender, EventArgs e)
         {
+            // User input via console
+            string[] args = Environment.GetCommandLineArgs();
+
+            if (args.Length > 1)
+            {
+                if (args[1] == "-")
+                    new Thread(this.TBufferInput).Start();
+                else
+                {
+                    Console.WriteLine("Only \"-\" is allowed for standard-in. Exiting.");
+                    Application.Exit();
+                }
+            }
+            else
+            {
+                MSaleaeDevices devices = new MSaleaeDevices();
+                devices.OnLogicConnect += new MSaleaeDevices.OnLogicConnectDelegate(devices_LogicOnConnect);
+                devices.OnLogic16Connect += new MSaleaeDevices.OnLogic16ConnectDelegate(devices_Logic16OnConnect);
+                devices.OnDisconnect += new MSaleaeDevices.OnDisconnectDelegate(devices_OnDisconnect);
+
+                devices.BeginConnect();
+
+                while (mLogic == null) { Thread.Sleep(500); Console.WriteLine("."); }
+                if (mLogic != null)
+                    mLogic.ReadStart();
+                restartRequired = false;
+
+                new Thread(this.TSaleaeWatchdog).Start();
+            }
+
             //Start the thing
             await Main(sender, e);
         }
 
+        //Saleae
+        void devices_OnDisconnect(ulong device_id)
+        {
+            Console.WriteLine("Device with id {0} disconnected.", device_id);
+            if (mLogic != null)
+                mLogic = null;
+            if (mLogic16 != null)
+                mLogic16 = null;
+        }
+
+        void devices_LogicOnConnect(ulong device_id, MLogic logic)
+        {
+            Console.WriteLine("Logic with id {0} connected.", device_id);
+
+            mLogic = logic;
+            mLogic.OnReadData += new MLogic.OnReadDataDelegate(mLogic_OnReadData);
+            mLogic.OnWriteData += new MLogic.OnWriteDataDelegate(mLogic_OnWriteData);
+            mLogic.OnError += new MLogic.OnErrorDelegate(mLogic_OnError);
+            mLogic.SampleRateHz = mSampleRateHz;
+        }
+
+        void devices_Logic16OnConnect(ulong device_id, MLogic16 logic_16)
+        {
+            Console.WriteLine("Logic16 with id {0} connected.", device_id);
+
+            mLogic16 = logic_16;
+            logic_16.OnReadData += new MLogic16.OnReadDataDelegate(mLogic16_OnReadData);
+            logic_16.OnError += new MLogic16.OnErrorDelegate(mLogic_OnError);
+            logic_16.SampleRateHz = mSampleRateHz;
+        }
+
+        void mLogic_OnReadData(ulong device_id, byte[] data)
+        {
+            //Console.WriteLine("Logic: Read {0} bytes, starting with 0x{1:X}", data.Length, (ushort)data[0]);
+            var t = new Task(() =>
+            {
+                for (int datum = 0; datum < data.Length; datum++) bufferedData.Enqueue(data[datum]);
+            });
+            t.Start();
+            t.Wait();
+           
+        }
+        void mLogic16_OnReadData(ulong device_id, byte[] data)
+        {
+            Console.WriteLine("Logic16: Read {0} bytes, starting with 0x{1:X}", data.Length, data[0]);
+        }
+
+        void mLogic_OnWriteData(ulong device_id, byte[] data)
+        {
+            for (int i = 0; i < data.Length; i++)
+            {
+                data[i] = mWriteValue;
+                mWriteValue++;
+            }
+
+            Console.WriteLine("Wrote {0} bytes of data", data.Length);
+        }
+
+        void mLogic_OnError(ulong device_id)
+        {
+            Console.WriteLine("Logic Reported an Error.  A restart will be attempted.");
+            restartRequired = true;
+        }
         public async Task Main(object sender, EventArgs e)
         {
             Bitmap newpic = null;
@@ -185,7 +303,7 @@ namespace CGATest
 
             // Starting thread to display frames
             new Thread(this.TShowPic).Start();
-            new Thread(this.TBufferInput).Start();
+            
 
             // Starting stream read
             while (!endofstream)
@@ -227,7 +345,9 @@ namespace CGATest
             radioButton1.ForeColor = Color.Red;
             radioButton1.Checked = false;
 
-            radioButton1.Text = "Stream ended";
+            radioButton1.Text = "Stream ended";          
+
+
         }
 
 
@@ -461,18 +581,29 @@ namespace CGATest
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            int p = -1;
+            //int p = -1;
 
-            processIds.TryDequeue(out p);
-            Console.WriteLine("Closing and shutting down " + p.ToString());
+            //processIds.TryDequeue(out p);
+            //Console.WriteLine("Closing and shutting down " + p.ToString());
 
             // Housekeeping, kill sigrok process if present
+            /*
             try
             {
                 Process processes = Process.GetProcessById(p);
                 if (p != 0) processes.Kill();
             }
             catch (Exception ex) { Console.WriteLine(ex.Message); }
+            */
+
+            //Saleae
+            
+            if(mLogic!=null)
+                if (mLogic.IsStreaming() == false)
+                    Console.WriteLine("Sorry, the device is not currently streaming.");
+                else
+                    mLogic.Stop();
+            
 
         }
 

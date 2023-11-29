@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        "SaleaeDeviceSdkDotNet"
+    </assembly>
+    <members>
+        <member name="E:SaleaeDeviceSdkDotNet.MLogic16.OnError">
+            <summary>Error event. Do not call functions on the device from this thread. If it is necessary to restart capture from this event, invoke function calls on the main thread.</summary>
+        </member>
+        <member name="E:SaleaeDeviceSdkDotNet.MLogic16.OnReadData">
+            <summary>Read data event. Only needed when reading using the ReadStart function.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic16.Stop">
+            <summary>Stops the current operation.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic16.ReadStart">
+            <summary>Begins data capture. Data is available from the OnReadDataDelegate callback.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic16.GetChannelCount">
+            <summary>Returns the number of channels the device uses.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic16.GetSupportedSampleRates">
+            <summary>Returns a list of available sample rates.</summary>
+        </member>
+        <member name="P:SaleaeDeviceSdkDotNet.MLogic16.Use5Volts">
+            <summary>Gets or sets which I/O voltage standard to use. false = 1.8V to 3.6V. true = 3.6V to 5.0V</summary>
+        </member>
+        <member name="P:SaleaeDeviceSdkDotNet.MLogic16.CaptureChannels">
+            <summary>Gets or sets the channels used in the next capture</summary>
+        </member>
+        <member name="P:SaleaeDeviceSdkDotNet.MLogic16.SampleRateHz">
+            <summary>Gets or sets the device sample rate in Hz.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic16.IsStreaming">
+            <summary>Returns true if the device is actively sampling. Otherwise returns false.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic16.IsUsb2pt0">
+            <summary>Returns true if the device is connected over USB 2.0. Returns false if using USB 1.1.</summary>
+        </member>
+        <member name="T:SaleaeDeviceSdkDotNet.MLogic16">
+            <summary>Represents a Saleae Logic 16 device.</summary>
+        </member>
+        <member name="E:SaleaeDeviceSdkDotNet.MLogic.OnError">
+            <summary>Error event. Do not call functions on the device from this thread. If it is necessary to restart capture from this event, invoke function calls on the main thread.</summary>
+        </member>
+        <member name="E:SaleaeDeviceSdkDotNet.MLogic.OnWriteData">
+            <summary>Write data event. Only needed when writing using the WriteStart function.</summary>
+        </member>
+        <member name="E:SaleaeDeviceSdkDotNet.MLogic.OnReadData">
+            <summary>Read data event. Only needed when reading using the ReadStart function.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic.SetOutput(System.Byte)">
+            <summary>Writes a single sample to the logic analyzer.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic.GetInput">
+            <summary>Captures a single sample from the logic analyzer.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic.Stop">
+            <summary>Stops the current operation.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic.WriteStart">
+            <summary>Begins data output. Data is written during the OnWriteDataDelegate callback. Continuous output is only insured with output rates below 4 MHz.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic.ReadStart">
+            <summary>Begins data capture. Data is available from the OnReadDataDelegate callback.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic.GetChannelCount">
+            <summary>Returns the number of channels the device uses.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic.GetSupportedSampleRates">
+            <summary>Returns a list of available sample rates.</summary>
+        </member>
+        <member name="P:SaleaeDeviceSdkDotNet.MLogic.SampleRateHz">
+            <summary>Gets or sets the device sample rate in Hz.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic.IsStreaming">
+            <summary>Returns true if the device is actively sampling. Otherwise returns false.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MLogic.IsUsb2pt0">
+            <summary>Returns true if the device is connected over USB 2.0. Returns false if using USB 1.1.</summary>
+        </member>
+        <member name="T:SaleaeDeviceSdkDotNet.MLogic">
+            <summary>Represents a Saleae Logic device.</summary>
+        </member>
+        <member name="E:SaleaeDeviceSdkDotNet.MSaleaeDevices.OnDisconnect">
+            <summary>Device disconnected event.</summary>
+        </member>
+        <member name="E:SaleaeDeviceSdkDotNet.MSaleaeDevices.OnLogic16Connect">
+            <summary>Logic 16 connected event. Required to access connected devices.</summary>
+        </member>
+        <member name="E:SaleaeDeviceSdkDotNet.MSaleaeDevices.OnLogicConnect">
+            <summary>Logic connected event. Required to access connected devices.</summary>
+        </member>
+        <member name="M:SaleaeDeviceSdkDotNet.MSaleaeDevices.BeginConnect">
+            <summary>Begin listening for device connections.</summary>
+        </member>
+        <member name="T:SaleaeDeviceSdkDotNet.MSaleaeDevices">
+            <summary>Represents the Saleae Device SDK.</summary>
+        </member>
+    </members>
+</doc>
