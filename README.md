@@ -3,8 +3,7 @@ C# to visualize a digital signal like MDA, CGA and EGA using an USB logic analyz
 
 It is loosely based on the sigrok2EGA project and uses the hardware connections defined there (see at the end).
 
-If started without arguments, it tries to start sigrok in 24Mhz mode. Currently the sigrok location is hardcoded here:
-"C:\Program Files\sigrok\sigrok-cli\sigrok-cli"
+If started without arguments, it starts the logic analyzer with 24MHz sample rate. This branch does not require sigrok but the DLLs from the Saleae SDK.
 
 It can also be started in a CMD window with the "-" argument and accepts any 8 bit data stream as stdin. ("myprogramm | CGATest -").
 
