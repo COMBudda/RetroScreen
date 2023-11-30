@@ -65,6 +65,12 @@ namespace CGATest
         MLogic16 mLogic16;
         byte mWriteValue = 0;
         bool restartRequired = true;
+
+        // vsync_polarity handling
+        bool v_sync_auto_handling = true;
+        bool v_inverted = false;
+        int v_cycles = 0;
+
         public Form1()
         {
 
@@ -121,7 +127,7 @@ namespace CGATest
         // Read input stream to buffer 
         private async void TBufferInput()
         {
-            
+
             Process sigrok = null;
             int buffSize = 32;
             int maxBuff = 2000000;
@@ -167,7 +173,7 @@ namespace CGATest
                 Console.WriteLine("Only \"-\" is allowed for standard-in. Exiting.");
                 Application.Exit();
             }*/
-               
+
             vIn = new StreamReader(Console.OpenStandardInput(), System.Text.Encoding.Latin1, bufferSize: 131072);
 
 
@@ -270,7 +276,7 @@ namespace CGATest
             });
             t.Start();
             t.Wait();
-           
+
         }
         void mLogic16_OnReadData(ulong device_id, byte[] data)
         {
@@ -303,7 +309,7 @@ namespace CGATest
 
             // Starting thread to display frames
             new Thread(this.TShowPic).Start();
-            
+
 
             // Starting stream read
             while (!endofstream)
@@ -345,7 +351,7 @@ namespace CGATest
             radioButton1.ForeColor = Color.Red;
             radioButton1.Checked = false;
 
-            radioButton1.Text = "Stream ended";          
+            radioButton1.Text = "Stream ended";
 
 
         }
@@ -364,6 +370,9 @@ namespace CGATest
             int xpos = 0, ypos = 0;
             int color;
             int hsync_filter = 0, vsync_filter = 0;
+            // Vsync inverted auto handling
+            int vsync_n = 0, vsync_p = 0;
+            // Vsync inverted auto handling
 
             // Colors incl. intensity bits
             byte redL = 0, greenL = 0, blueL = 0, redH = 0, greenH = 0, blueH = 0;
@@ -380,69 +389,75 @@ namespace CGATest
 
             await Task.Run(() =>
             {
-            while (loop)
-            {
 
-                // A timeout in case no data is added to the queue. Multibyte read-async can get stuck then
-                readFail = 0;
-                while (!bufferedData.TryDequeue(out readchar))
+                while (loop)
                 {
-                    readFail++;
-                    if (readFail > 100)
+
+                    // A timeout in case no data is added to the queue. Multibyte read-async can get stuck then
+                    readFail = 0;
+                    while (!bufferedData.TryDequeue(out readchar))
                     {
-                        readchar = -1;
+                        readFail++;
+                        if (readFail > 100)
+                        {
+                            readchar = -1;
+                            break;
+                        }
+                        // Give it some time
+                        Thread.Sleep(50);
+                    }
+
+                    // Catch standard case of file end
+                    if (readchar == -1)
+                    {
+                        loop = false;
+                        endofstream = true;
                         break;
                     }
-                    // Give it some time
-                    Thread.Sleep(50);
-                }
+                    else
+                    {
+                        rawdata = readchar;
+                    }
 
-                // Catch standard case of file end
-                if (readchar == -1)
-                {
-                    loop = false;
-                    endofstream = true;
-                    break;
-                }
-                else
-                {
-                    rawdata = readchar;
-                }
+                    // Safe former sync state
+                    vsyncc = vsync; hsyncc = hsync;
 
-                // Safe former sync state
-                vsyncc = vsync; hsyncc = hsync;
+                    // Extract Sync Signal
+                    vsync_raw = (rawdata & 128) > 0;
+                    hsync_raw = (rawdata & 64) > 0;
 
-                // Extract Sync Signal
-                vsync_raw = (rawdata & 128) > 0;
-                hsync_raw = (rawdata & 64) > 0;
+                    //invert sync signal if required
+                    if (invert_sync)
+                    {
+                        hsync_raw = !hsync_raw;
+                        vsync_raw = !vsync_raw;
+                    }
 
-                //invert sync signal if required
-                if (invert_sync)
-                {
-                    hsync_raw = !hsync_raw;
-                    vsync_raw = !vsync_raw;
-                }
+                    if (v_inverted)
+                    {
+                        vsync_raw = !vsync_raw;
+                    }
 
 
-                // Extract Color 
-                if (invert_color)
-                    color = (int)rawdata ^ 0x3F;
-                else
-                    color = (int)rawdata & 0x3F;
+                    // Extract Color 
+                    if (invert_color)
+                        color = (int)rawdata ^ 0x3F;
+                    else
+                        color = (int)rawdata & 0x3F;
 
-                //Low bits
-                blueL = (byte)(color & 1);
-                color = color >> 1;
-                greenL = (byte)(color & 1);
-                color = color >> 1;
-                redL = (byte)(color & 1);
-                //High bits (intensity)
-                color = color >> 1;
-                greenH = (byte)(color & 1);
-                color = color >> 1;
-                redH = (byte)(color & 1);
-                color = color >> 1;
-                blueH = (byte)(color & 1);
+                    //Low bits
+                    blueL = (byte)(color & 1);
+                    color = color >> 1;
+                    greenL = (byte)(color & 1);
+                    color = color >> 1;
+                    redL = (byte)(color & 1);
+                    //High bits (intensity)
+                    color = color >> 1;
+                    greenH = (byte)(color & 1);
+                    color = color >> 1;
+                    redH = (byte)(color & 1);
+                    color = color >> 1;
+                    blueH = (byte)(color & 1);
 
                     switch (colorMode)
                     {
@@ -476,6 +491,7 @@ namespace CGATest
                     hsync_filter = (hsync_filter | (hsync_raw ? 1 : 0));
                     if ((vsync_filter & vsync_filterbits) == vsync_filterbits) vsync = true; else if ((vsync_filter & vsync_filterbits) == 0) vsync = false;
                     if ((hsync_filter & hsync_filterbits) == hsync_filterbits) hsync = true; else if ((hsync_filter & hsync_filterbits) == 0) hsync = false;
+
 
                     //composite handling
                     if (composite_sync)
@@ -517,9 +533,28 @@ namespace CGATest
 
                     if (!vsync) // Outside vsync cyle
                     {
+                        // Vsync inverted auto handling
+                        vsync_n++;
+                        // Vsync inverted auto handling
+
                         if (vsyncc && vcompositeflag) // Just coming from a vsync signal, new frame
                         {
                             yposmax = ypos;
+
+                            // Vsync inverted auto handling
+                            if (v_sync_auto_handling)
+                            {
+                                if (vsync_p > vsync_n && v_cycles > 1)
+                                {
+                                    if (!v_inverted) v_inverted = true; else v_inverted = false;
+                                    v_cycles = 0;
+                                }
+                                else v_cycles++;
+                            }
+                            else v_inverted = false;
+                            vsync_p = 0; vsync_n = 0;
+                            // Vsync inverted auto handling
+
                             break;
                         }
 
@@ -550,6 +585,10 @@ namespace CGATest
                             }
                         }
                     }
+                    else
+                    {//Vsync inverted auto handling
+                        vsync_p++;
+                    }//Vsync inverted auto handling
                 }
             });
 
@@ -597,13 +636,13 @@ namespace CGATest
             */
 
             //Saleae
-            
-            if(mLogic!=null)
+
+            if (mLogic != null)
                 if (mLogic.IsStreaming() == false)
                     Console.WriteLine("Sorry, the device is not currently streaming.");
                 else
-                    mLogic.Stop();
-            
+                    mLogic.Stop(); 
+
 
         }
 
@@ -671,7 +710,8 @@ namespace CGATest
                     radioButton7.Checked = true;
                     xResize = xr;
                 }
-            } catch { textBox5.Text = ""; }
+            }
+            catch { textBox5.Text = ""; }
         }
 
         private void textBox6_TextChanged(object sender, EventArgs e)
@@ -688,7 +728,12 @@ namespace CGATest
                     yResize = yr;
                 }
             }
-            catch { textBox6.Text = ""; } 
+            catch { textBox6.Text = ""; }
+        }
+
+        private void checkBox4_CheckedChanged(object sender, EventArgs e)
+        {
+            v_sync_auto_handling = !v_sync_auto_handling;
         }
     }
 

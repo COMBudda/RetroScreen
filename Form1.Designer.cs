@@ -37,6 +37,7 @@
             timer1 = new System.Windows.Forms.Timer(components);
             label1 = new Label();
             panel1 = new Panel();
+            checkBox4 = new CheckBox();
             groupBox3 = new GroupBox();
             label5 = new Label();
             label4 = new Label();
@@ -126,6 +127,7 @@
             // 
             // panel1
             // 
+            panel1.Controls.Add(checkBox4);
             panel1.Controls.Add(groupBox3);
             panel1.Controls.Add(groupBox1);
             panel1.Controls.Add(checkBox3);
@@ -138,6 +140,19 @@
             panel1.Name = "panel1";
             panel1.Size = new Size(218, 1233);
             panel1.TabIndex = 7;
+            // 
+            // checkBox4
+            // 
+            checkBox4.AutoSize = true;
+            checkBox4.Checked = true;
+            checkBox4.CheckState = CheckState.Checked;
+            checkBox4.Location = new Point(23, 74);
+            checkBox4.Name = "checkBox4";
+            checkBox4.Size = new Size(192, 29);
+            checkBox4.TabIndex = 19;
+            checkBox4.Text = "Auto VSync Polarity";
+            checkBox4.UseVisualStyleBackColor = true;
+            checkBox4.CheckedChanged += checkBox4_CheckedChanged;
             // 
             // groupBox3
             // 
@@ -292,7 +307,7 @@
             // checkBox2
             // 
             checkBox2.AutoSize = true;
-            checkBox2.Location = new Point(22, 144);
+            checkBox2.Location = new Point(22, 154);
             checkBox2.Name = "checkBox2";
             checkBox2.Size = new Size(131, 29);
             checkBox2.TabIndex = 9;
@@ -303,7 +318,7 @@
             // checkBox1
             // 
             checkBox1.AutoSize = true;
-            checkBox1.Location = new Point(23, 95);
+            checkBox1.Location = new Point(23, 113);
             checkBox1.Name = "checkBox1";
             checkBox1.Size = new Size(124, 29);
             checkBox1.TabIndex = 8;
@@ -398,5 +413,6 @@
         private TextBox textBox5;
         private Label label5;
         private Label label4;
+        private CheckBox checkBox4;
     }
 }
