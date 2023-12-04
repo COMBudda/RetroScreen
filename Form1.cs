@@ -20,7 +20,6 @@ using System.Collections.Generic;
 using SaleaeDeviceSdkDotNet;
 
 
-
 namespace CGATest
 {
 
@@ -28,6 +27,7 @@ namespace CGATest
     {
         static int width = 1500, height = 500;
         volatile Bitmap newframe = new Bitmap(1500, 500);
+        volatile bool newframeisready = false;
 
         public volatile StreamReader vIn;
         public volatile ConcurrentQueue<int> bufferedData = new ConcurrentQueue<int>();
@@ -92,32 +92,35 @@ namespace CGATest
 
             textBox1.Text = TB1.ToString();
             textBox2.Text = TB2.ToString();
-            //textBox4.Text = TB3.ToString();
             screens = 0;
         }
 
 
-        private void TShowPic()
+        private void TShowPic(object? obj)
         {
             Bitmap? resized = null;
+            CancellationToken ct = (CancellationToken) obj;
 
             var t = Task.Run(() =>
             {
-                while (true)
+                while (true && ! ct.IsCancellationRequested)
                 {
-                    if (newframe != null)
-                        if (originalSize)
-                        {
-                            pictureBox1.Image = (Bitmap)newframe.Clone();
-                        }
-                        else
-                        {
-                            resized = new Bitmap(newframe, new Size(xResize, yResize));
-                            pictureBox1.Image = (Bitmap)resized.Clone();
-                        }
-
+                    if (newframeisready)
+                    {
+                        if (originalSize) // Do we want to keep the original raw picture
+                            {
+                                pictureBox1.Image = (Bitmap)newframe.Clone();
+                            }
+                            else // or do we scale up
+                            {
+                                resized = new Bitmap((Bitmap)newframe, new Size(xResize, yResize));
+                                pictureBox1.Image = (Bitmap)resized.Clone();
+                                resized.Dispose();  
+                            }
+                        newframeisready = false;
+                    }
                     // Wait for a 50Hz refresh
-                    Thread.Sleep(20);
+                    Thread.Sleep(1);
                 }
             }
             );
@@ -125,7 +128,7 @@ namespace CGATest
 
 
         // Read input stream to buffer 
-        private async void TBufferInput()
+        private async void TBufferInput(object? o)
         {
 
             Process sigrok = null;
@@ -134,64 +137,38 @@ namespace CGATest
             bool loop = true;
             int readchar = 0;
             char[] c = new char[buffSize];
-
-            /*
-            if (args.Length == 1) // do we start sigrok on our own?
-            {
-               Console.WriteLine("Starting Sigrok");
-                
-                // Sigrok process start
-                
-                 var startSigrok = new ProcessStartInfo
-                {
-                    FileName = @"C:\Program Files\sigrok\sigrok-cli\sigrok-cli",
-                    WorkingDirectory = @"C:\Program Files\sigrok\sigrok-cli\",
-                    RedirectStandardOutput = true,
-                    CreateNoWindow = true,
-                    Arguments = @"-d fx2lafw -O binary --config ""samplerate=24 MHz"" --continuous",
-                    StandardOutputEncoding = Encoding.Latin1 // required to get only one byte per char
-                };
-
-                sigrok = Process.Start(startSigrok);
-
-                sigrok.PriorityClass = ProcessPriorityClass.RealTime;
-
-                // Queue Id for later housekeeping
-                processIds.Enqueue(sigrok.Id);
-
-                // Attach sigrok to stdout
-                vIn = sigrok.StandardOutput;
-            }
-            else
-                // or is there a pipe?
-                if (args[1] == "-")
-            {
-                vIn = new StreamReader(Console.OpenStandardInput(), System.Text.Encoding.Latin1, bufferSize: 131072);
-            }
-            else
-            {
-                Console.WriteLine("Only \"-\" is allowed for standard-in. Exiting.");
-                Application.Exit();
-            }*/
+            CancellationToken ct = (CancellationToken) o;
 
             vIn = new StreamReader(Console.OpenStandardInput(), System.Text.Encoding.Latin1, bufferSize: 131072);
 
-
-            while (loop && vIn != null)
+            while (loop && vIn != null && !ct.IsCancellationRequested)
             {
-                readchar = await vIn.ReadAsync(c, 0, buffSize);
+                readchar = await vIn.ReadAsync(c, 0, buffSize); 
                 TB3 = bufferedData.Count;
+                int i = 0;
                 // if (TB3<maxBuff) 
-                for (int i = 0; i < readchar; i++) bufferedData.Enqueue(c[i]);
-
+                try
+                {
+                    // Delay input since the file is much faster than the drawing
+                    while(bufferedData.Count > maxBuff) { Thread.Sleep(1); }
+                    for (i = 0; i < readchar; i++) bufferedData.Enqueue(c[i]);
+                }
+                catch (Exception ex)
+                {
+                    // In case we are out of memory
+                    bufferedData.Clear();
+                    vIn.DiscardBufferedData();
+                }
             }
         }
 
-        private async void TSaleaeWatchdog()
+        private async void TSaleaeWatchdog(object? o)
         {
+            CancellationToken ct = (CancellationToken) o;
+
             await Task.Run(() =>
             {
-                while (true)
+                while (true && !ct.IsCancellationRequested)
                 {
                     if (restartRequired) mLogic.ReadStart();
                     restartRequired = false;
@@ -202,13 +179,33 @@ namespace CGATest
 
         private async void Form1_Shown(object sender, EventArgs e)
         {
+            // Starting threads for data input, Saleae connection health and picture display
+
+            Thread Handler_TBufferInput = null;
+            CancellationTokenSource CTSTBufferInput = new CancellationTokenSource();
+            CancellationToken CTTBufferInput = CTSTBufferInput.Token;
+
+            Thread Handler_TSaleaeWatchdog = null;
+            CancellationTokenSource CTSTSaleaeWatchdog = new CancellationTokenSource();
+            CancellationToken CTTSaleaeWatchdog = CTSTSaleaeWatchdog.Token;
+
+
+            Thread Handler_TShowPic = null;
+            CancellationTokenSource CTSshowpic = new CancellationTokenSource();
+            CancellationToken CTShowPic = CTSshowpic.Token;
+            Handler_TShowPic = new Thread(this.TShowPic);
+            Handler_TShowPic.Start(CTShowPic);
+
             // User input via console
             string[] args = Environment.GetCommandLineArgs();
 
             if (args.Length > 1)
             {
                 if (args[1] == "-")
-                    new Thread(this.TBufferInput).Start();
+                {
+                    Handler_TBufferInput = new Thread(this.TBufferInput);
+                    Handler_TBufferInput.Start(CTTBufferInput);
+                }
                 else
                 {
                     Console.WriteLine("Only \"-\" is allowed for standard-in. Exiting.");
@@ -229,11 +226,24 @@ namespace CGATest
                     mLogic.ReadStart();
                 restartRequired = false;
 
-                new Thread(this.TSaleaeWatchdog).Start();
+                Handler_TSaleaeWatchdog = new Thread(this.TSaleaeWatchdog);
+                Handler_TSaleaeWatchdog.Start(CTTSaleaeWatchdog);
             }
 
             //Start the thing
             await Main(sender, e);
+
+            // Stopping Saleae if necessary
+            if (mLogic != null)
+                if (mLogic.IsStreaming() == false)
+                    Console.WriteLine("Sorry, the device is not currently streaming.");
+                else
+                    mLogic.Stop();
+
+            // If finished, clean up threads
+            if (Handler_TBufferInput != null) CTSTBufferInput.Cancel();
+            if (Handler_TSaleaeWatchdog != null) CTSTSaleaeWatchdog.Cancel();
+            if(Handler_TShowPic != null) CTSshowpic.Cancel();
         }
 
         //Saleae
@@ -302,14 +312,11 @@ namespace CGATest
         public async Task Main(object sender, EventArgs e)
         {
             Bitmap newpic = null;
+            //Thread Handler_TShowPic = null;
 
             radioButton1.ForeColor = Color.Green;
             radioButton1.Text = "Reading...";
             radioButton1.Checked = true;
-
-            // Starting thread to display frames
-            new Thread(this.TShowPic).Start();
-
 
             // Starting stream read
             while (!endofstream)
@@ -319,20 +326,18 @@ namespace CGATest
                 {
                     newpic = await CP;
                     CP.Dispose();
+
                 });
+
                 if (newpic != null) // Valid picture received, extract only the area which has data in it
                 {
                     RectangleF cloneRect = new RectangleF(0, 0, xposmax_b, yposmax_b);
                     if (newpic.Height > 5) newframe = (Bitmap)newpic.Clone(cloneRect, PixelFormat.DontCare);
                     newpic.Dispose();
-
-                    xposmax_b = xposmax; yposmax_b = yposmax;
-                }
-                else // No valid picture
-                {
-                    xposmax_b = xposmax; yposmax_b = yposmax;
                 }
 
+                //Remember bitmap size to use small bitmaps later. This speeds up things.
+                xposmax_b = xposmax; yposmax_b = yposmax;
 
                 // Count received frames
                 screens++;
@@ -347,16 +352,12 @@ namespace CGATest
                 }
             }
 
-            // The stream ended
             radioButton1.ForeColor = Color.Red;
             radioButton1.Checked = false;
 
             radioButton1.Text = "Stream ended";
-
-
+            
         }
-
-
 
         private async Task<Bitmap?> CreatePicture(object sender, EventArgs e)
         {
@@ -389,87 +390,85 @@ namespace CGATest
 
             await Task.Run(() =>
             {
+            while (loop && !endofstream)
+            {
+                // A timeout in case no data is added to the queue. Multibyte read-async can get stuck then
+                readFail = 0;
 
-                while (loop)
+                while (!bufferedData.TryDequeue(out readchar))
                 {
-
-                    // A timeout in case no data is added to the queue. Multibyte read-async can get stuck then
-                    readFail = 0;
-                    while (!bufferedData.TryDequeue(out readchar))
+                    readFail++;
+                    if (readFail > 100)
                     {
-                        readFail++;
-                        if (readFail > 100)
-                        {
-                            readchar = -1;
-                            break;
-                        }
-                        // Give it some time
-                        Thread.Sleep(50);
-                    }
-
-                    // Catch standard case of file end
-                    if (readchar == -1)
-                    {
-                        loop = false;
-                        endofstream = true;
+                        readchar = -1;
                         break;
                     }
-                    else
-                    {
-                        rawdata = readchar;
-                    }
+                    // Give it some time
+                    Thread.Sleep(50);
+                }
 
-                    // Safe former sync state
-                    vsyncc = vsync; hsyncc = hsync;
+                // Catch standard case of file end
+                if (readchar == -1)
+                {
+                    loop = false;
+                    endofstream = true;
+                    bmp.Dispose();
+                    break;
+                }
+                else
+                {
+                    rawdata = readchar;
+                }
 
-                    // Extract Sync Signal
-                    vsync_raw = (rawdata & 128) > 0;
-                    hsync_raw = (rawdata & 64) > 0;
+                // Safe former sync state
+                vsyncc = vsync; hsyncc = hsync;
 
-                    //invert sync signal if required
-                    if (invert_sync)
-                    {
-                        hsync_raw = !hsync_raw;
-                        vsync_raw = !vsync_raw;
-                    }
+                // Extract Sync Signal
+                vsync_raw = (rawdata & 128) > 0;
+                hsync_raw = (rawdata & 64) > 0;
 
-                    if (v_inverted)
-                    {
-                        vsync_raw = !vsync_raw;
-                    }
+                //invert sync signal if required
+                if (invert_sync)
+                {
+                    hsync_raw = !hsync_raw;
+                    vsync_raw = !vsync_raw;
+                }
+
+                if (v_inverted)
+                {
+                    vsync_raw = !vsync_raw;
+                }
 
 
-                    // Extract Color 
-                    if (invert_color)
-                        color = (int)rawdata ^ 0x3F;
-                    else
-                        color = (int)rawdata & 0x3F;
+                // Extract Color 
+                if (invert_color)
+                    color = (int)rawdata ^ 0x3F;
+                else
+                    color = (int)rawdata & 0x3F;
 
-                    //Low bits
-                    blueL = (byte)(color & 1);
-                    color = color >> 1;
-                    greenL = (byte)(color & 1);
-                    color = color >> 1;
-                    redL = (byte)(color & 1);
-                    //High bits (intensity)
-                    color = color >> 1;
-                    greenH = (byte)(color & 1);
-                    color = color >> 1;
-                    redH = (byte)(color & 1);
-                    color = color >> 1;
-                    blueH = (byte)(color & 1);
+                //Low bits
+                blueL = (byte)(color & 1);
+                color = color >> 1;
+                greenL = (byte)(color & 1);
+                color = color >> 1;
+                redL = (byte)(color & 1);
+                //High bits (intensity)
+                color = color >> 1;
+                greenH = (byte)(color & 1);
+                color = color >> 1;
+                redH = (byte)(color & 1);
+                color = color >> 1;
+                blueH = (byte)(color & 1);
 
                     switch (colorMode)
                     {
-                        case 0: //RGB is just one intensity level
+                        case 0: //Basic RGB is just one intensity level, fails for MDA
                             red = (byte)(redL * 255);
                             green = (byte)(greenL * 255);
                             blue = (byte)(blueL * 255);
                             break;
-                        case 1: // MDA relies on green and intensity on green
-                            green = (byte)((greenL * 170) + (greenH * 85));
-                            blue = green;
-                            red = green;
+                        case 1: // MDA relies on signal and intensity (See pinout)
+                            green = (byte)((blueH * 170) + (greenH * 85));
                             break;
                         case 2: // CGA has intensity as well (on green)
                             red = (byte)((redL * 170) + (greenH * 85));
@@ -568,20 +567,19 @@ namespace CGATest
                             }
                             else // No sync and no recent changes: Set horizontal pixels
                             {
-                                if (xpos < width)
-                                {
-                                    if (xpos < xposmax_b && ypos < yposmax_b) // Within defined bitmap ?
-                                        // Fast setpixel 
-                                        unsafe
-                                        {
-                                            byte* ptr = (byte*)data.Scan0;
-                                            ptr[(xpos * 3) + ypos * stride] = blue;
-                                            ptr[(xpos * 3) + ypos * stride + 1] = green;
-                                            ptr[(xpos * 3) + ypos * stride + 2] = red;
-                                            xpos++;
-                                        }
-                                    else xpos++; // If no pixel are set, we are still interested in the high value
-                                }
+
+                                if (xpos < width && xpos < xposmax_b && ypos < yposmax_b) // Within defined bitmap ?
+                                    // Fast setpixel 
+                                    unsafe
+                                    {
+                                        byte* ptr = (byte*)data.Scan0;
+                                        ptr[(xpos * 3) + ypos * stride] = blue;
+                                        ptr[(xpos * 3) + ypos * stride + 1] = green;
+                                        ptr[(xpos * 3) + ypos * stride + 2] = red;
+                                        xpos++;
+                                    }
+                                else xpos++; // If no pixel are set, we are still interested in the high value
+
                             }
                         }
                     }
@@ -596,12 +594,13 @@ namespace CGATest
             TB1 = xposmax;
             TB2 = yposmax;
 
-            if (xposmax_b < 10 || yposmax_b < 10) return null; // received frame is too small, discard
+            if (xposmax_b < 10 || yposmax_b < 10 || endofstream) return null; // received frame is too small or stream stopped, discard
             else
             {
                 //experiment
                 bmp.UnlockBits(data);
                 //experiment
+                newframeisready = true;
                 return bmp;
             }
 
@@ -620,29 +619,11 @@ namespace CGATest
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            //int p = -1;
-
-            //processIds.TryDequeue(out p);
-            //Console.WriteLine("Closing and shutting down " + p.ToString());
-
-            // Housekeeping, kill sigrok process if present
-            /*
-            try
-            {
-                Process processes = Process.GetProcessById(p);
-                if (p != 0) processes.Kill();
-            }
-            catch (Exception ex) { Console.WriteLine(ex.Message); }
-            */
-
-            //Saleae
-
             if (mLogic != null)
                 if (mLogic.IsStreaming() == false)
                     Console.WriteLine("Sorry, the device is not currently streaming.");
                 else
-                    mLogic.Stop(); 
-
+                    mLogic.Stop();
 
         }
 
@@ -734,6 +715,11 @@ namespace CGATest
         private void checkBox4_CheckedChanged(object sender, EventArgs e)
         {
             v_sync_auto_handling = !v_sync_auto_handling;
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            endofstream = true;
         }
     }
 

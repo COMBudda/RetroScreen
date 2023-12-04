@@ -37,6 +37,7 @@
             timer1 = new System.Windows.Forms.Timer(components);
             label1 = new Label();
             panel1 = new Panel();
+            button1 = new Button();
             checkBox4 = new CheckBox();
             groupBox3 = new GroupBox();
             label5 = new Label();
@@ -127,6 +128,7 @@
             // 
             // panel1
             // 
+            panel1.Controls.Add(button1);
             panel1.Controls.Add(checkBox4);
             panel1.Controls.Add(groupBox3);
             panel1.Controls.Add(groupBox1);
@@ -140,6 +142,18 @@
             panel1.Name = "panel1";
             panel1.Size = new Size(218, 1233);
             panel1.TabIndex = 7;
+            // 
+            // button1
+            // 
+            button1.Enabled = false;
+            button1.Location = new Point(46, 793);
+            button1.Name = "button1";
+            button1.Size = new Size(112, 34);
+            button1.TabIndex = 20;
+            button1.Text = "button1";
+            button1.UseVisualStyleBackColor = true;
+            button1.Visible = false;
+            button1.Click += button1_Click;
             // 
             // checkBox4
             // 
@@ -414,5 +428,6 @@
         private Label label5;
         private Label label4;
         private CheckBox checkBox4;
+        private Button button1;
     }
 }
