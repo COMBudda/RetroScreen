@@ -28,22 +28,25 @@ namespace CGATest
         static int width = 1500, height = 500;
         volatile Bitmap newframe = new Bitmap(1500, 500);
         volatile bool newframeisready = false;
+        byte[,] bline = new byte[1500, 500];
+        byte[,] gline = new byte[1500, 500];
+        byte[,] rline = new byte[1500, 500];
 
         public volatile StreamReader vIn;
         public volatile ConcurrentQueue<int> bufferedData = new ConcurrentQueue<int>();
-        static int maxBuffer = 300000;
+        
+        static int maxBuffer = 100000000;
 
         bool endofstream = false;
         public volatile int TB1 = 0, TB2 = 0, TB3 = 0, screens = 0;
 
-        int xposmax = 0, yposmax = 0, xposmax_b = 1, yposmax_b = 1, yposA = 0;
+        int xposmax = 0, yposmax = 0, xposmax_b = 1, yposmax_b = 1;
 
-        int vexpected = 0, hexpected = 0, vxc = 0, vxm = 0;
-        //int csync_min = 5000000, csync_max = 0;
+
         int hsync_filterbits = 7, vsync_filterbits = 7;
         static System.Windows.Forms.Timer fTimer = new System.Windows.Forms.Timer();
         static System.Windows.Forms.Timer ftTimer = new System.Windows.Forms.Timer();
-        bool invert_sync = false, vb = false, invert_color = false;
+        bool invert_sync = false, invert_color = false;
 
         // Color Mode 0-RGB, 1-MDA, 2-CGA, 3-EGA
         int colorMode = 0;
@@ -53,7 +56,7 @@ namespace CGATest
         int xResize = 1024, yResize = 768;
 
         //Composite Stuff
-        int syncpulses = 0, sync_long = 0, sync_short = 0;
+        int syncpulses = 0, sync_long = 0;
         bool composite_sync = false;
 
         // process
@@ -71,89 +74,94 @@ namespace CGATest
         bool v_inverted = false;
         int v_cycles = 0;
 
+        //Test quality
+        int hduration = 9999;
+        bool smoothing = false;
+
         public Form1()
         {
 
             InitializeComponent();
             pictureBox1.Image = new Bitmap(width, height);
-            ftTimer.Tick += new EventHandler(TShowFrames);
+            ftTimer.Tick += new EventHandler(TShowInfo);
 
             ftTimer.Interval = 1000;
             ftTimer.Enabled = true;
             ftTimer.Start();
 
             pictureBox1.SizeMode = PictureBoxSizeMode.CenterImage;
+
         }
 
 
-        private void TShowFrames(object myObject, EventArgs myEventArgs)
+        private void TShowInfo(object myObject, EventArgs myEventArgs)
         {
-            textBox3.Text = screens.ToString();
-
-            textBox1.Text = TB1.ToString();
-            textBox2.Text = TB2.ToString();
+            toolStripStatusLabel4.Text = TB1.ToString();
+            toolStripStatusLabel5.Text = TB2.ToString();
+            toolStripStatusLabel6.Text = screens.ToString();
             screens = 0;
         }
 
 
-        private void TShowPic(object? obj)
+        private async void TShowPic(object? obj)
         {
             Bitmap? resized = null;
-            CancellationToken ct = (CancellationToken) obj;
-
-            var t = Task.Run(() =>
+            CancellationToken ct = (CancellationToken)obj;
+            
+            await Task.Run(() =>
             {
-                while (true && ! ct.IsCancellationRequested)
+                while (true && !ct.IsCancellationRequested)
                 {
                     if (newframeisready)
                     {
                         if (originalSize) // Do we want to keep the original raw picture
-                            {
-                                pictureBox1.Image = (Bitmap)newframe.Clone();
-                            }
-                            else // or do we scale up
-                            {
-                                resized = new Bitmap((Bitmap)newframe, new Size(xResize, yResize));
-                                pictureBox1.Image = (Bitmap)resized.Clone();
-                                resized.Dispose();  
-                            }
+                        {
+                            pictureBox1.Image = (Bitmap)newframe.Clone();
+                        }
+                        else // or do we scale up
+                        {
+                            resized = new Bitmap((Bitmap)newframe, new Size(xResize, yResize));
+                            pictureBox1.Image = (Bitmap)resized.Clone();
+                            resized.Dispose();
+                        }
                         newframeisready = false;
-                    }
-                    // Wait for a 50Hz refresh
+                    } 
+                    // Wait for a refresh
                     Thread.Sleep(1);
                 }
             }
             );
         }
+            
 
 
-        // Read input stream to buffer 
-        private async void TBufferInput(object? o)
+
+
+
+// Read input stream to buffer 
+private async void TBufferInput(object? o)
         {
-
-            Process sigrok = null;
             int buffSize = 32;
-            int maxBuff = 2000000;
             bool loop = true;
             int readchar = 0;
             char[] c = new char[buffSize];
-            CancellationToken ct = (CancellationToken) o;
+            CancellationToken ct = (CancellationToken)o;
 
             vIn = new StreamReader(Console.OpenStandardInput(), System.Text.Encoding.Latin1, bufferSize: 131072);
 
             while (loop && vIn != null && !ct.IsCancellationRequested)
             {
-                readchar = await vIn.ReadAsync(c, 0, buffSize); 
+                readchar = await vIn.ReadAsync(c, 0, buffSize);
                 TB3 = bufferedData.Count;
                 int i = 0;
                 // if (TB3<maxBuff) 
                 try
                 {
                     // Delay input since the file is much faster than the drawing
-                    while(bufferedData.Count > maxBuff) { Thread.Sleep(1); }
+                    while (bufferedData.Count > maxBuffer) { Thread.Sleep(1); }
                     for (i = 0; i < readchar; i++) bufferedData.Enqueue(c[i]);
                 }
-                catch (Exception ex)
+                catch
                 {
                     // In case we are out of memory
                     bufferedData.Clear();
@@ -164,15 +172,19 @@ namespace CGATest
 
         private async void TSaleaeWatchdog(object? o)
         {
-            CancellationToken ct = (CancellationToken) o;
+            CancellationToken ct = (CancellationToken)o;
 
             await Task.Run(() =>
             {
                 while (true && !ct.IsCancellationRequested)
                 {
-                    if (restartRequired) mLogic.ReadStart();
+                    if (restartRequired)
+                    {
+                        mLogic.ReadStart();
+                        toolStripStatusLabel8.Text = "Connected to Logic with " + mSampleRateHz + "Hz";
+                    }
                     restartRequired = false;
-                    Thread.Sleep(100);
+                    Thread.Sleep(10);
                 }
             });
         }
@@ -205,6 +217,7 @@ namespace CGATest
                 {
                     Handler_TBufferInput = new Thread(this.TBufferInput);
                     Handler_TBufferInput.Start(CTTBufferInput);
+                    toolStripStatusLabel8.Text = "Input from STDIN";
                 }
                 else
                 {
@@ -221,7 +234,21 @@ namespace CGATest
 
                 devices.BeginConnect();
 
-                while (mLogic == null) { Thread.Sleep(500); Console.WriteLine("."); }
+                await Task.Run(() =>
+                {
+                    toolStripStatusLabel8.Text = "Connecting...";
+                    while (mLogic == null)
+                    {
+                        toolStripStatusLabel8.ForeColor = Color.Red;
+                        Thread.Sleep(300);
+                        toolStripStatusLabel8.ForeColor = Color.Black;
+                        Thread.Sleep(300);
+                    }
+                });
+
+                toolStripStatusLabel8.ForeColor = Color.Green;
+                toolStripStatusLabel8.Text = "Connected to Logic with " + mSampleRateHz + "Hz";
+
                 if (mLogic != null)
                     mLogic.ReadStart();
                 restartRequired = false;
@@ -243,7 +270,7 @@ namespace CGATest
             // If finished, clean up threads
             if (Handler_TBufferInput != null) CTSTBufferInput.Cancel();
             if (Handler_TSaleaeWatchdog != null) CTSTSaleaeWatchdog.Cancel();
-            if(Handler_TShowPic != null) CTSshowpic.Cancel();
+            if (Handler_TShowPic != null) CTSshowpic.Cancel();
         }
 
         //Saleae
@@ -258,7 +285,7 @@ namespace CGATest
 
         void devices_LogicOnConnect(ulong device_id, MLogic logic)
         {
-            Console.WriteLine("Logic with id {0} connected.", device_id);
+            //Console.WriteLine("Logic with id {0} connected.", device_id);
 
             mLogic = logic;
             mLogic.OnReadData += new MLogic.OnReadDataDelegate(mLogic_OnReadData);
@@ -269,7 +296,7 @@ namespace CGATest
 
         void devices_Logic16OnConnect(ulong device_id, MLogic16 logic_16)
         {
-            Console.WriteLine("Logic16 with id {0} connected.", device_id);
+            //Console.WriteLine("Logic16 with id {0} connected.", device_id);
 
             mLogic16 = logic_16;
             logic_16.OnReadData += new MLogic16.OnReadDataDelegate(mLogic16_OnReadData);
@@ -280,12 +307,12 @@ namespace CGATest
         void mLogic_OnReadData(ulong device_id, byte[] data)
         {
             //Console.WriteLine("Logic: Read {0} bytes, starting with 0x{1:X}", data.Length, (ushort)data[0]);
-            var t = new Task(() =>
+            try
             {
-                for (int datum = 0; datum < data.Length; datum++) bufferedData.Enqueue(data[datum]);
-            });
-            t.Start();
-            t.Wait();
+                for (int datum = 0; datum < data.Length; datum++)
+                    bufferedData.Enqueue(data[datum]);
+            }
+            catch { bufferedData.Clear(); }
 
         }
         void mLogic16_OnReadData(ulong device_id, byte[] data)
@@ -306,7 +333,7 @@ namespace CGATest
 
         void mLogic_OnError(ulong device_id)
         {
-            Console.WriteLine("Logic Reported an Error.  A restart will be attempted.");
+            toolStripStatusLabel8.Text = "Restarting Stream.";
             restartRequired = true;
         }
         public async Task Main(object sender, EventArgs e)
@@ -321,12 +348,12 @@ namespace CGATest
             // Starting stream read
             while (!endofstream)
             {
-                Task<Bitmap?> CP = CreatePicture(sender, e);
+                Task<Bitmap> CP = CreatePicture(sender, e);
                 await Task.Run(async () =>
                 {
                     newpic = await CP;
-                    CP.Dispose();
 
+                    CP.Dispose();
                 });
 
                 if (newpic != null) // Valid picture received, extract only the area which has data in it
@@ -334,6 +361,8 @@ namespace CGATest
                     RectangleF cloneRect = new RectangleF(0, 0, xposmax_b, yposmax_b);
                     if (newpic.Height > 5) newframe = (Bitmap)newpic.Clone(cloneRect, PixelFormat.DontCare);
                     newpic.Dispose();
+
+                    newframeisready = true;
                 }
 
                 //Remember bitmap size to use small bitmaps later. This speeds up things.
@@ -341,28 +370,19 @@ namespace CGATest
 
                 // Count received frames
                 screens++;
-
-                // calculate running average for number of expected lines per frame
-                vxc++;
-                yposA = (yposA + yposmax) / 2;
-                if (vxc > 60)
-                {
-                    vxc = 0;
-                    yposA = yposmax;
-                }
             }
 
             radioButton1.ForeColor = Color.Red;
             radioButton1.Checked = false;
 
             radioButton1.Text = "Stream ended";
-            
+
         }
 
-        private async Task<Bitmap?> CreatePicture(object sender, EventArgs e)
+        private async Task<Bitmap> CreatePicture(object sender, EventArgs e)
         {
-            //Bitmap bmp = new Bitmap(width, (yposmax > 200 ? yposmax : 200));
             Bitmap bmp = new Bitmap((xposmax_b > 10 ? xposmax : 10), (yposmax_b > 10 ? yposmax_b : 10));
+            
             int readchar, readFail;
             int rawdata = 0;
             bool hsync_raw = false, vsync_raw = false;
@@ -372,17 +392,19 @@ namespace CGATest
             int color;
             int hsync_filter = 0, vsync_filter = 0;
             // Vsync inverted auto handling
-            int vsync_n = 0, vsync_p = 0;
+            int vsync_n = 0, vsync_p = 0, hsync_p = 0;
             // Vsync inverted auto handling
 
             // Colors incl. intensity bits
             byte redL = 0, greenL = 0, blueL = 0, redH = 0, greenH = 0, blueH = 0;
             byte red = 0, green = 0, blue = 0;
+            byte[] b_line = new byte[1500];
+            byte[] g_line = new byte[1500];
+            byte[] r_line = new byte[1500];
 
             bool loop = true;
             bool vcompositeflag = false, armed = false;
-
-
+                      
             //experiment
             BitmapData data = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, PixelFormat.Format24bppRgb);
             int stride = data.Stride;
@@ -390,75 +412,75 @@ namespace CGATest
 
             await Task.Run(() =>
             {
-            while (loop && !endofstream)
-            {
-                // A timeout in case no data is added to the queue. Multibyte read-async can get stuck then
-                readFail = 0;
-
-                while (!bufferedData.TryDequeue(out readchar))
+               while (loop && !endofstream)
                 {
-                    readFail++;
-                    if (readFail > 100)
+                    // A timeout in case no data is added to the queue. Multibyte read-async can get stuck then
+                    readFail = 0;
+                    while (!bufferedData.TryDequeue(out readchar))
                     {
-                        readchar = -1;
+                        readFail++;
+                        if (readFail > 100)
+                        {
+                            readchar = -1;
+                            break;
+                        }
+                        // Give it some time
+                        Thread.Sleep(1);
+                    }
+                    
+                    // Catch standard case of file end
+                    if (readchar == -1)
+                    {
+                        loop = false;
+                        endofstream = true;
+                        bmp.Dispose();
                         break;
                     }
-                    // Give it some time
-                    Thread.Sleep(50);
-                }
+                    else
+                    {
+                        rawdata = readchar;
+                    }
 
-                // Catch standard case of file end
-                if (readchar == -1)
-                {
-                    loop = false;
-                    endofstream = true;
-                    bmp.Dispose();
-                    break;
-                }
-                else
-                {
-                    rawdata = readchar;
-                }
+                    // Safe former sync state
+                    vsyncc = vsync; hsyncc = hsync;
 
-                // Safe former sync state
-                vsyncc = vsync; hsyncc = hsync;
+                    // Extract Sync Signal
+                    vsync_raw = (rawdata & 128) > 0;
+                    hsync_raw = (rawdata & 64) > 0;
 
-                // Extract Sync Signal
-                vsync_raw = (rawdata & 128) > 0;
-                hsync_raw = (rawdata & 64) > 0;
+                    //invert sync signal if required
+                    if (invert_sync)
+                    {
+                        hsync_raw = !hsync_raw;
+                        vsync_raw = !vsync_raw;
+                    }
 
-                //invert sync signal if required
-                if (invert_sync)
-                {
-                    hsync_raw = !hsync_raw;
-                    vsync_raw = !vsync_raw;
-                }
-
-                if (v_inverted)
-                {
-                    vsync_raw = !vsync_raw;
-                }
+                    //Invert Vertical Sync for e.g. EGA and MDA (autodetected)
+                    if (v_inverted)
+                    {
+                        vsync_raw = !vsync_raw;
+                    }
 
 
-                // Extract Color 
-                if (invert_color)
-                    color = (int)rawdata ^ 0x3F;
-                else
-                    color = (int)rawdata & 0x3F;
+                    // Extract Color 
+                    if (invert_color)
+                        color = (int)rawdata ^ 0x3F;
+                    else
+                        color = (int)rawdata & 0x3F;
 
-                //Low bits
-                blueL = (byte)(color & 1);
-                color = color >> 1;
-                greenL = (byte)(color & 1);
-                color = color >> 1;
-                redL = (byte)(color & 1);
-                //High bits (intensity)
-                color = color >> 1;
-                greenH = (byte)(color & 1);
-                color = color >> 1;
-                redH = (byte)(color & 1);
-                color = color >> 1;
-                blueH = (byte)(color & 1);
+                    //Low bits
+                    blueL = (byte)(color & 1);
+                    color = color >> 1;
+                    greenL = (byte)(color & 1);
+                    color = color >> 1;
+                    redL = (byte)(color & 1);
+                    //High bits (intensity)
+                    color = color >> 1;
+                    greenH = (byte)(color & 1);
+                    color = color >> 1;
+                    redH = (byte)(color & 1);
+                    color = color >> 1;
+                    blueH = (byte)(color & 1);
 
                     switch (colorMode)
                     {
@@ -484,13 +506,13 @@ namespace CGATest
 
 
                     // Remove Sync Noise by scanning 3 subsequent signals (filterbits set to b111 dec7
+
                     vsync_filter = vsync_filter << 1;
                     hsync_filter = hsync_filter << 1;
                     vsync_filter = (vsync_filter | (vsync_raw ? 1 : 0));
                     hsync_filter = (hsync_filter | (hsync_raw ? 1 : 0));
                     if ((vsync_filter & vsync_filterbits) == vsync_filterbits) vsync = true; else if ((vsync_filter & vsync_filterbits) == 0) vsync = false;
                     if ((hsync_filter & hsync_filterbits) == hsync_filterbits) hsync = true; else if ((hsync_filter & hsync_filterbits) == 0) hsync = false;
-
 
                     //composite handling
                     if (composite_sync)
@@ -528,6 +550,7 @@ namespace CGATest
                         hsync = vsync;
                     }
                     else vcompositeflag = true;
+                    // End of Composite Handling
 
 
                     if (!vsync) // Outside vsync cyle
@@ -559,40 +582,75 @@ namespace CGATest
 
                         if (!hsync) // Outside hsync cyle
                         {
+                            int xoffset = 0 ;
                             if (hsyncc) // Just coming from a hsync signal, new line
                             {
+                                
                                 // expectation setting and limiter
-                                xposmax = xpos; xpos = 1;
+                                xposmax = xpos;
+                                // new line and reset horizontal
                                 if (ypos < height) ypos++;
+                                xpos = 0;
+
+                                //Quality
+                                // Do we have a substantial change but not a hsync (in case of composite)
+                                if (hsync_p > (hduration + 1) && hsync_p < (hduration * 3)) { /*Console.WriteLine("reset jitter"+hduration+":"+hsync_p);*/ hduration = hsync_p; }
+                                // Find the shortest hsync pulse
+                                if (hsync_p < hduration) hduration = hsync_p;
+                                // If there is jitter, skip pixels
+                                xoffset = (hsync_p-hduration);
+                                xpos = xoffset;
+                                hsync_p = 0;
+
                             }
                             else // No sync and no recent changes: Set horizontal pixels
                             {
-
-                                if (xpos < width && xpos < xposmax_b && ypos < yposmax_b) // Within defined bitmap ?
-                                    // Fast setpixel 
+                                if (xpos>0 && xpos < width && xpos < xposmax_b && ypos < yposmax_b) // Within defined bitmap ?
+                                {
+                                    byte setblue = blue;
+                                    byte setgreen = green;
+                                    byte setred = red;
+                                    
                                     unsafe
                                     {
                                         byte* ptr = (byte*)data.Scan0;
-                                        ptr[(xpos * 3) + ypos * stride] = blue;
-                                        ptr[(xpos * 3) + ypos * stride + 1] = green;
-                                        ptr[(xpos * 3) + ypos * stride + 2] = red;
-                                        xpos++;
-                                    }
-                                else xpos++; // If no pixel are set, we are still interested in the high value
 
-                            }
+                                        if (smoothing)
+                                        {
+                                            if (!(blue == bline[xpos, ypos])) setblue = bline[xpos-xoffset, ypos];
+                                            if (!(green == gline[xpos, ypos])) setgreen = gline[xpos-xoffset, ypos];
+                                            if (!(red == rline[xpos, ypos])) setred = rline[xpos-xoffset, ypos];
+                                        }
+                                        
+                                        ptr[(xpos * 3) + ypos * stride] = setblue;
+                                        ptr[(xpos * 3) + ypos * stride + 1] = setgreen;
+                                        ptr[(xpos * 3) + ypos * stride + 2] = setred;
+                                    };
+
+                                    if (smoothing)
+                                    {
+                                        bline[xpos, ypos] = (byte)((setblue*2 + blue) / 3);
+                                        gline[xpos, ypos] = (byte)((setgreen *2+ green) / 3);
+                                        rline[xpos, ypos] = (byte)((setred *2 + red) / 3);
+                                    }
+                                    xpos++;
+                                }
+                                else xpos++; // If no pixel are set, we are still interested in the high value
+                            } 
                         }
+                        else hsync_p++;
                     }
                     else
                     {//Vsync inverted auto handling
                         vsync_p++;
+                        hsync_p++;
                     }//Vsync inverted auto handling
                 }
             });
 
             // Visualize parameters
-            TB1 = xposmax;
-            TB2 = yposmax;
+            TB1 = xposmax_b;
+            TB2 = yposmax_b;
 
             if (xposmax_b < 10 || yposmax_b < 10 || endofstream) return null; // received frame is too small or stream stopped, discard
             else
@@ -600,7 +658,7 @@ namespace CGATest
                 //experiment
                 bmp.UnlockBits(data);
                 //experiment
-                newframeisready = true;
+                
                 return bmp;
             }
 
@@ -608,13 +666,12 @@ namespace CGATest
 
         private void reset()
         {
-            // Reset and Flush
-            syncpulses = 0; sync_long = 0; sync_short = 0;
+            // Reset 
+            syncpulses = 0; sync_long = 0;
             endofstream = false;
             TB1 = 0; TB2 = 0; screens = 0;
-            xposmax = 0; yposmax = 0; xposmax_b = 1; yposmax_b = 1; yposA = 0;
-            vexpected = 0; hexpected = 0; vxc = 0; vxm = 0;
-            //vIn.DiscardBufferedData();
+            xposmax = 0; yposmax = 0; xposmax_b = 1; yposmax_b = 1;
+
         }
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
@@ -720,6 +777,12 @@ namespace CGATest
         private void button1_Click(object sender, EventArgs e)
         {
             endofstream = true;
+        }
+
+        private void checkBox5_CheckedChanged(object sender, EventArgs e)
+        {
+            smoothing = !smoothing;
+            checkBox5.Checked= smoothing;
         }
     }
 

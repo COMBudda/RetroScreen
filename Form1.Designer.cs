@@ -30,13 +30,10 @@
         {
             components = new System.ComponentModel.Container();
             pictureBox1 = new PictureBox();
-            textBox1 = new TextBox();
             radioButton1 = new RadioButton();
-            textBox2 = new TextBox();
-            textBox3 = new TextBox();
             timer1 = new System.Windows.Forms.Timer(components);
-            label1 = new Label();
             panel1 = new Panel();
+            checkBox5 = new CheckBox();
             button1 = new Button();
             checkBox4 = new CheckBox();
             groupBox3 = new GroupBox();
@@ -54,14 +51,20 @@
             checkBox3 = new CheckBox();
             checkBox2 = new CheckBox();
             checkBox1 = new CheckBox();
-            groupBox2 = new GroupBox();
-            label3 = new Label();
-            label2 = new Label();
+            statusStrip1 = new StatusStrip();
+            toolStripStatusLabel1 = new ToolStripStatusLabel();
+            toolStripStatusLabel4 = new ToolStripStatusLabel();
+            toolStripStatusLabel2 = new ToolStripStatusLabel();
+            toolStripStatusLabel5 = new ToolStripStatusLabel();
+            toolStripStatusLabel3 = new ToolStripStatusLabel();
+            toolStripStatusLabel6 = new ToolStripStatusLabel();
+            toolStripStatusLabel7 = new ToolStripStatusLabel();
+            toolStripStatusLabel8 = new ToolStripStatusLabel();
             ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
             panel1.SuspendLayout();
             groupBox3.SuspendLayout();
             groupBox1.SuspendLayout();
-            groupBox2.SuspendLayout();
+            statusStrip1.SuspendLayout();
             SuspendLayout();
             // 
             // pictureBox1
@@ -71,25 +74,15 @@
             pictureBox1.BorderStyle = BorderStyle.Fixed3D;
             pictureBox1.Location = new Point(0, 0);
             pictureBox1.Name = "pictureBox1";
-            pictureBox1.Size = new Size(1652, 1233);
+            pictureBox1.Size = new Size(1644, 1233);
             pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
             pictureBox1.TabIndex = 0;
             pictureBox1.TabStop = false;
             // 
-            // textBox1
-            // 
-            textBox1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            textBox1.Enabled = false;
-            textBox1.Location = new Point(24, 78);
-            textBox1.Name = "textBox1";
-            textBox1.Size = new Size(151, 31);
-            textBox1.TabIndex = 1;
-            textBox1.TextAlign = HorizontalAlignment.Right;
-            // 
             // radioButton1
             // 
             radioButton1.AutoSize = true;
-            radioButton1.Location = new Point(33, 31);
+            radioButton1.Location = new Point(24, 26);
             radioButton1.Name = "radioButton1";
             radioButton1.Size = new Size(142, 29);
             radioButton1.TabIndex = 2;
@@ -98,36 +91,10 @@
             radioButton1.UseVisualStyleBackColor = true;
             radioButton1.UseWaitCursor = true;
             // 
-            // textBox2
-            // 
-            textBox2.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            textBox2.Enabled = false;
-            textBox2.Location = new Point(24, 161);
-            textBox2.Name = "textBox2";
-            textBox2.Size = new Size(151, 31);
-            textBox2.TabIndex = 4;
-            textBox2.TextAlign = HorizontalAlignment.Right;
-            // 
-            // textBox3
-            // 
-            textBox3.Enabled = false;
-            textBox3.Location = new Point(24, 248);
-            textBox3.Name = "textBox3";
-            textBox3.Size = new Size(115, 31);
-            textBox3.TabIndex = 5;
-            textBox3.TextAlign = HorizontalAlignment.Right;
-            // 
-            // label1
-            // 
-            label1.AutoSize = true;
-            label1.Location = new Point(12, 220);
-            label1.Name = "label1";
-            label1.Size = new Size(137, 25);
-            label1.TabIndex = 6;
-            label1.Text = "Intake Frames/s";
-            // 
             // panel1
             // 
+            panel1.BorderStyle = BorderStyle.Fixed3D;
+            panel1.Controls.Add(checkBox5);
             panel1.Controls.Add(button1);
             panel1.Controls.Add(checkBox4);
             panel1.Controls.Add(groupBox3);
@@ -136,17 +103,26 @@
             panel1.Controls.Add(checkBox2);
             panel1.Controls.Add(checkBox1);
             panel1.Controls.Add(radioButton1);
-            panel1.Controls.Add(groupBox2);
             panel1.Dock = DockStyle.Right;
-            panel1.Location = new Point(1644, 0);
+            panel1.Location = new Point(1640, 0);
             panel1.Name = "panel1";
-            panel1.Size = new Size(218, 1233);
+            panel1.Size = new Size(222, 1233);
             panel1.TabIndex = 7;
+            // 
+            // checkBox5
+            // 
+            checkBox5.AutoSize = true;
+            checkBox5.Location = new Point(22, 231);
+            checkBox5.Name = "checkBox5";
+            checkBox5.Size = new Size(185, 29);
+            checkBox5.TabIndex = 21;
+            checkBox5.Text = "Smoothing (alpha)";
+            checkBox5.UseVisualStyleBackColor = true;
+            checkBox5.CheckedChanged += checkBox5_CheckedChanged;
             // 
             // button1
             // 
-            button1.Enabled = false;
-            button1.Location = new Point(46, 793);
+            button1.Location = new Point(54, 802);
             button1.Name = "button1";
             button1.Size = new Size(112, 34);
             button1.TabIndex = 20;
@@ -177,7 +153,7 @@
             groupBox3.Controls.Add(radioButton6);
             groupBox3.Controls.Add(textBox6);
             groupBox3.Controls.Add(textBox5);
-            groupBox3.Location = new Point(0, 457);
+            groupBox3.Location = new Point(0, 465);
             groupBox3.Name = "groupBox3";
             groupBox3.Size = new Size(218, 229);
             groupBox3.TabIndex = 18;
@@ -253,7 +229,7 @@
             groupBox1.Controls.Add(radioButton4);
             groupBox1.Controls.Add(radioButton3);
             groupBox1.Controls.Add(radioButton2);
-            groupBox1.Location = new Point(0, 241);
+            groupBox1.Location = new Point(0, 271);
             groupBox1.Name = "groupBox1";
             groupBox1.Size = new Size(218, 194);
             groupBox1.TabIndex = 13;
@@ -340,46 +316,84 @@
             checkBox1.UseVisualStyleBackColor = true;
             checkBox1.CheckedChanged += checkBox1_CheckedChanged;
             // 
-            // groupBox2
+            // statusStrip1
             // 
-            groupBox2.BackColor = Color.AntiqueWhite;
-            groupBox2.Controls.Add(label3);
-            groupBox2.Controls.Add(label2);
-            groupBox2.Controls.Add(textBox1);
-            groupBox2.Controls.Add(textBox2);
-            groupBox2.Controls.Add(textBox3);
-            groupBox2.Controls.Add(label1);
-            groupBox2.Dock = DockStyle.Bottom;
-            groupBox2.Location = new Point(0, 924);
-            groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(218, 309);
-            groupBox2.TabIndex = 16;
-            groupBox2.TabStop = false;
-            groupBox2.Text = "Details";
+            statusStrip1.ImageScalingSize = new Size(24, 24);
+            statusStrip1.Items.AddRange(new ToolStripItem[] { toolStripStatusLabel1, toolStripStatusLabel4, toolStripStatusLabel2, toolStripStatusLabel5, toolStripStatusLabel3, toolStripStatusLabel6, toolStripStatusLabel7, toolStripStatusLabel8 });
+            statusStrip1.Location = new Point(0, 1197);
+            statusStrip1.Name = "statusStrip1";
+            statusStrip1.Size = new Size(1640, 36);
+            statusStrip1.SizingGrip = false;
+            statusStrip1.TabIndex = 17;
+            statusStrip1.Text = "statusStrip1";
             // 
-            // label3
+            // toolStripStatusLabel1
             // 
-            label3.AutoSize = true;
-            label3.Location = new Point(11, 133);
-            label3.Name = "label3";
-            label3.Size = new Size(140, 25);
-            label3.TabIndex = 15;
-            label3.Text = "Scanlines/Frame";
+            toolStripStatusLabel1.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            toolStripStatusLabel1.Name = "toolStripStatusLabel1";
+            toolStripStatusLabel1.Size = new Size(161, 29);
+            toolStripStatusLabel1.Text = "Samples/Scanline";
             // 
-            // label2
+            // toolStripStatusLabel4
             // 
-            label2.AutoSize = true;
-            label2.Location = new Point(8, 50);
-            label2.Name = "label2";
-            label2.Size = new Size(150, 25);
-            label2.TabIndex = 14;
-            label2.Text = "Samples/Scanline";
+            toolStripStatusLabel4.BorderSides = ToolStripStatusLabelBorderSides.Right;
+            toolStripStatusLabel4.Font = new Font("Segoe UI", 9F);
+            toolStripStatusLabel4.Name = "toolStripStatusLabel4";
+            toolStripStatusLabel4.Size = new Size(26, 29);
+            toolStripStatusLabel4.Text = "0";
+            toolStripStatusLabel4.TextAlign = ContentAlignment.MiddleRight;
+            // 
+            // toolStripStatusLabel2
+            // 
+            toolStripStatusLabel2.BorderSides = ToolStripStatusLabelBorderSides.Left;
+            toolStripStatusLabel2.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            toolStripStatusLabel2.Name = "toolStripStatusLabel2";
+            toolStripStatusLabel2.Size = new Size(155, 29);
+            toolStripStatusLabel2.Text = "Scanlines/Frame";
+            // 
+            // toolStripStatusLabel5
+            // 
+            toolStripStatusLabel5.BorderSides = ToolStripStatusLabelBorderSides.Right;
+            toolStripStatusLabel5.Name = "toolStripStatusLabel5";
+            toolStripStatusLabel5.Size = new Size(26, 29);
+            toolStripStatusLabel5.Text = "0";
+            toolStripStatusLabel5.TextAlign = ContentAlignment.MiddleRight;
+            // 
+            // toolStripStatusLabel3
+            // 
+            toolStripStatusLabel3.BorderSides = ToolStripStatusLabelBorderSides.Left;
+            toolStripStatusLabel3.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            toolStripStatusLabel3.Name = "toolStripStatusLabel3";
+            toolStripStatusLabel3.Size = new Size(177, 29);
+            toolStripStatusLabel3.Text = "Incoming Frames/s";
+            // 
+            // toolStripStatusLabel6
+            // 
+            toolStripStatusLabel6.BorderSides = ToolStripStatusLabelBorderSides.Right;
+            toolStripStatusLabel6.Name = "toolStripStatusLabel6";
+            toolStripStatusLabel6.Size = new Size(26, 29);
+            toolStripStatusLabel6.Text = "0";
+            toolStripStatusLabel6.TextAlign = ContentAlignment.MiddleRight;
+            // 
+            // toolStripStatusLabel7
+            // 
+            toolStripStatusLabel7.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            toolStripStatusLabel7.Name = "toolStripStatusLabel7";
+            toolStripStatusLabel7.Size = new Size(167, 29);
+            toolStripStatusLabel7.Text = "Connection Status";
+            // 
+            // toolStripStatusLabel8
+            // 
+            toolStripStatusLabel8.Name = "toolStripStatusLabel8";
+            toolStripStatusLabel8.Size = new Size(117, 29);
+            toolStripStatusLabel8.Text = "---------------";
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1862, 1233);
+            Controls.Add(statusStrip1);
             Controls.Add(panel1);
             Controls.Add(pictureBox1);
             Name = "Form1";
@@ -393,33 +407,26 @@
             groupBox3.PerformLayout();
             groupBox1.ResumeLayout(false);
             groupBox1.PerformLayout();
-            groupBox2.ResumeLayout(false);
-            groupBox2.PerformLayout();
+            statusStrip1.ResumeLayout(false);
+            statusStrip1.PerformLayout();
             ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
 
         private PictureBox pictureBox1;
-        private TextBox textBox1;
         private RadioButton radioButton1;
-        private TextBox textBox2;
-        private TextBox textBox3;
         private System.Windows.Forms.Timer timer1;
-        private Label label1;
         private Panel panel1;
         private CheckBox checkBox1;
         private CheckBox checkBox2;
         private CheckBox checkBox3;
-        private CheckedListBox checkedListBox1;
         private GroupBox groupBox1;
         private RadioButton radioButton5;
         private RadioButton radioButton4;
         private RadioButton radioButton3;
         private RadioButton radioButton2;
-        private Label label3;
-        private Label label2;
-        private GroupBox groupBox2;
         private GroupBox groupBox3;
         private RadioButton radioButton7;
         private RadioButton radioButton6;
@@ -429,5 +436,15 @@
         private Label label4;
         private CheckBox checkBox4;
         private Button button1;
+        private StatusStrip statusStrip1;
+        private ToolStripStatusLabel toolStripStatusLabel1;
+        private ToolStripStatusLabel toolStripStatusLabel2;
+        private ToolStripStatusLabel toolStripStatusLabel3;
+        private ToolStripStatusLabel toolStripStatusLabel4;
+        private ToolStripStatusLabel toolStripStatusLabel5;
+        private ToolStripStatusLabel toolStripStatusLabel6;
+        private ToolStripStatusLabel toolStripStatusLabel7;
+        private ToolStripStatusLabel toolStripStatusLabel8;
+        private CheckBox checkBox5;
     }
 }
