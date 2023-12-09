@@ -18,6 +18,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 using System;
 using System.Collections.Generic;
 using SaleaeDeviceSdkDotNet;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 
 namespace CGATest
@@ -34,7 +35,7 @@ namespace CGATest
 
         public volatile StreamReader vIn;
         public volatile ConcurrentQueue<int> bufferedData = new ConcurrentQueue<int>();
-        
+
         static int maxBuffer = 100000000;
 
         bool endofstream = false;
@@ -99,15 +100,16 @@ namespace CGATest
             toolStripStatusLabel4.Text = TB1.ToString();
             toolStripStatusLabel5.Text = TB2.ToString();
             toolStripStatusLabel6.Text = screens.ToString();
+            if (screens < 2) reset();
             screens = 0;
         }
 
-
+        
         private async void TShowPic(object? obj)
         {
             Bitmap? resized = null;
             CancellationToken ct = (CancellationToken)obj;
-            
+
             await Task.Run(() =>
             {
                 while (true && !ct.IsCancellationRequested)
@@ -121,25 +123,24 @@ namespace CGATest
                         else // or do we scale up
                         {
                             resized = new Bitmap((Bitmap)newframe, new Size(xResize, yResize));
+
                             pictureBox1.Image = (Bitmap)resized.Clone();
                             resized.Dispose();
                         }
+                        
+                        newframe.Dispose();
                         newframeisready = false;
-                    } 
+                    }
                     // Wait for a refresh
-                    Thread.Sleep(1);
+                    Thread.Sleep(10);
                 }
             }
             );
         }
-            
+        
 
-
-
-
-
-// Read input stream to buffer 
-private async void TBufferInput(object? o)
+        // Read input stream to buffer 
+        private async void TBufferInput(object? o)
         {
             int buffSize = 32;
             bool loop = true;
@@ -152,9 +153,7 @@ private async void TBufferInput(object? o)
             while (loop && vIn != null && !ct.IsCancellationRequested)
             {
                 readchar = await vIn.ReadAsync(c, 0, buffSize);
-                TB3 = bufferedData.Count;
                 int i = 0;
-                // if (TB3<maxBuff) 
                 try
                 {
                     // Delay input since the file is much faster than the drawing
@@ -180,8 +179,8 @@ private async void TBufferInput(object? o)
                 {
                     if (restartRequired)
                     {
-                        mLogic.ReadStart();
-                        toolStripStatusLabel8.Text = "Connected to Logic with " + mSampleRateHz + "Hz";
+                        mLogic.ReadStart(); 
+                        toolStripStatusLabel8.Text = "Connected to Logic with " + mLogic.SampleRateHz + "Hz";
                     }
                     restartRequired = false;
                     Thread.Sleep(10);
@@ -200,7 +199,6 @@ private async void TBufferInput(object? o)
             Thread Handler_TSaleaeWatchdog = null;
             CancellationTokenSource CTSTSaleaeWatchdog = new CancellationTokenSource();
             CancellationToken CTTSaleaeWatchdog = CTSTSaleaeWatchdog.Token;
-
 
             Thread Handler_TShowPic = null;
             CancellationTokenSource CTSshowpic = new CancellationTokenSource();
@@ -246,6 +244,22 @@ private async void TBufferInput(object? o)
                     }
                 });
 
+                List<uint> sample_rates = new List<uint>();
+                if (mLogic != null)
+                    sample_rates = mLogic.GetSupportedSampleRates();
+                if (mLogic16 != null)
+                    sample_rates = mLogic16.GetSupportedSampleRates();
+
+
+                //Sample Rates
+                for (int i = 0; i < sample_rates.Count; ++i)
+                {
+                    uint newSampleRate = sample_rates[i];
+                    ToolStripItem item = toolStripDropDownButton1.DropDownItems.Add(string.Format(sample_rates[i].ToString(), newSampleRate ), null, new EventHandler(SetSamplingRate));
+                    item.Tag = newSampleRate;
+                }
+
+
                 toolStripStatusLabel8.ForeColor = Color.Green;
                 toolStripStatusLabel8.Text = "Connected to Logic with " + mSampleRateHz + "Hz";
 
@@ -270,7 +284,7 @@ private async void TBufferInput(object? o)
             // If finished, clean up threads
             if (Handler_TBufferInput != null) CTSTBufferInput.Cancel();
             if (Handler_TSaleaeWatchdog != null) CTSTSaleaeWatchdog.Cancel();
-            if (Handler_TShowPic != null) CTSshowpic.Cancel();
+            //if (Handler_TShowPic != null) CTSshowpic.Cancel();
         }
 
         //Saleae
@@ -352,14 +366,17 @@ private async void TBufferInput(object? o)
                 await Task.Run(async () =>
                 {
                     newpic = await CP;
-
                     CP.Dispose();
                 });
+
+                if (xposmax >= width) xposmax = width;
+                if (yposmax >= height) yposmax = height;
 
                 if (newpic != null) // Valid picture received, extract only the area which has data in it
                 {
                     RectangleF cloneRect = new RectangleF(0, 0, xposmax_b, yposmax_b);
-                    if (newpic.Height > 5) newframe = (Bitmap)newpic.Clone(cloneRect, PixelFormat.DontCare);
+                    //if (newpic.Height > 5) newframe = (Bitmap)newpic.Clone(cloneRect, PixelFormat.DontCare);
+                    newframe = (Bitmap)newpic.Clone();
                     newpic.Dispose();
 
                     newframeisready = true;
@@ -381,8 +398,8 @@ private async void TBufferInput(object? o)
 
         private async Task<Bitmap> CreatePicture(object sender, EventArgs e)
         {
-            Bitmap bmp = new Bitmap((xposmax_b > 10 ? xposmax : 10), (yposmax_b > 10 ? yposmax_b : 10));
-            
+            Bitmap bmp = new Bitmap((xposmax_b > 10  ? xposmax : 10), (yposmax_b > 10 ? yposmax_b : 10));
+
             int readchar, readFail;
             int rawdata = 0;
             bool hsync_raw = false, vsync_raw = false;
@@ -404,7 +421,7 @@ private async void TBufferInput(object? o)
 
             bool loop = true;
             bool vcompositeflag = false, armed = false;
-                      
+
             //experiment
             BitmapData data = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, PixelFormat.Format24bppRgb);
             int stride = data.Stride;
@@ -412,7 +429,7 @@ private async void TBufferInput(object? o)
 
             await Task.Run(() =>
             {
-               while (loop && !endofstream)
+                while (loop && !endofstream)
                 {
                     // A timeout in case no data is added to the queue. Multibyte read-async can get stuck then
                     readFail = 0;
@@ -427,7 +444,7 @@ private async void TBufferInput(object? o)
                         // Give it some time
                         Thread.Sleep(1);
                     }
-                    
+
                     // Catch standard case of file end
                     if (readchar == -1)
                     {
@@ -582,10 +599,10 @@ private async void TBufferInput(object? o)
 
                         if (!hsync) // Outside hsync cyle
                         {
-                            int xoffset = 0 ;
+                            int xoffset = 0;
                             if (hsyncc) // Just coming from a hsync signal, new line
                             {
-                                
+
                                 // expectation setting and limiter
                                 xposmax = xpos;
                                 // new line and reset horizontal
@@ -598,30 +615,30 @@ private async void TBufferInput(object? o)
                                 // Find the shortest hsync pulse
                                 if (hsync_p < hduration) hduration = hsync_p;
                                 // If there is jitter, skip pixels
-                                xoffset = (hsync_p-hduration);
+                                xoffset = (hsync_p - hduration);
                                 xpos = xoffset;
                                 hsync_p = 0;
 
                             }
                             else // No sync and no recent changes: Set horizontal pixels
                             {
-                                if (xpos>0 && xpos < width && xpos < xposmax_b && ypos < yposmax_b) // Within defined bitmap ?
+                                if (xpos > 0 && xpos < width && xpos < xposmax_b && ypos < yposmax_b ) // Within defined bitmap ?
                                 {
                                     byte setblue = blue;
                                     byte setgreen = green;
                                     byte setred = red;
-                                    
+
                                     unsafe
                                     {
                                         byte* ptr = (byte*)data.Scan0;
 
                                         if (smoothing)
                                         {
-                                            if (!(blue == bline[xpos, ypos])) setblue = bline[xpos-xoffset, ypos];
-                                            if (!(green == gline[xpos, ypos])) setgreen = gline[xpos-xoffset, ypos];
-                                            if (!(red == rline[xpos, ypos])) setred = rline[xpos-xoffset, ypos];
+                                            if (!(blue == bline[xpos, ypos])) setblue = bline[xpos - xoffset, ypos];
+                                            if (!(green == gline[xpos, ypos])) setgreen = gline[xpos - xoffset, ypos];
+                                            if (!(red == rline[xpos, ypos])) setred = rline[xpos - xoffset, ypos];
                                         }
-                                        
+
                                         ptr[(xpos * 3) + ypos * stride] = setblue;
                                         ptr[(xpos * 3) + ypos * stride + 1] = setgreen;
                                         ptr[(xpos * 3) + ypos * stride + 2] = setred;
@@ -629,14 +646,14 @@ private async void TBufferInput(object? o)
 
                                     if (smoothing)
                                     {
-                                        bline[xpos, ypos] = (byte)((setblue*2 + blue) / 3);
-                                        gline[xpos, ypos] = (byte)((setgreen *2+ green) / 3);
-                                        rline[xpos, ypos] = (byte)((setred *2 + red) / 3);
+                                        bline[xpos, ypos] = (byte)((setblue * 2 + blue) / 3);
+                                        gline[xpos, ypos] = (byte)((setgreen * 2 + green) / 3);
+                                        rline[xpos, ypos] = (byte)((setred * 2 + red) / 3);
                                     }
                                     xpos++;
                                 }
                                 else xpos++; // If no pixel are set, we are still interested in the high value
-                            } 
+                            }
                         }
                         else hsync_p++;
                     }
@@ -651,20 +668,21 @@ private async void TBufferInput(object? o)
             // Visualize parameters
             TB1 = xposmax_b;
             TB2 = yposmax_b;
-
+            
             if (xposmax_b < 10 || yposmax_b < 10 || endofstream) return null; // received frame is too small or stream stopped, discard
             else
             {
                 //experiment
                 bmp.UnlockBits(data);
                 //experiment
-                
+
                 return bmp;
             }
+            
 
         }
 
-        private void reset()
+               private void reset()
         {
             // Reset 
             syncpulses = 0; sync_long = 0;
@@ -681,7 +699,6 @@ private async void TBufferInput(object? o)
                     Console.WriteLine("Sorry, the device is not currently streaming.");
                 else
                     mLogic.Stop();
-
         }
 
 
@@ -782,8 +799,18 @@ private async void TBufferInput(object? o)
         private void checkBox5_CheckedChanged(object sender, EventArgs e)
         {
             smoothing = !smoothing;
-            checkBox5.Checked= smoothing;
+            checkBox5.Checked = smoothing;
         }
-    }
+
+        private void SetSamplingRate(object sender, EventArgs e)
+        {
+            ToolStripItem item = (ToolStripItem)sender;
+            uint newRate = (uint)item.Tag;
+            mLogic.Stop();
+            Thread.Sleep(100);
+            mLogic.SampleRateHz = newRate;
+            restartRequired = true;
+        }
+}
 
 }

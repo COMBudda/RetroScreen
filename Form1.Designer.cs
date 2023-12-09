@@ -29,6 +29,7 @@
         private void InitializeComponent()
         {
             components = new System.ComponentModel.Container();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             pictureBox1 = new PictureBox();
             radioButton1 = new RadioButton();
             timer1 = new System.Windows.Forms.Timer(components);
@@ -58,6 +59,7 @@
             toolStripStatusLabel5 = new ToolStripStatusLabel();
             toolStripStatusLabel3 = new ToolStripStatusLabel();
             toolStripStatusLabel6 = new ToolStripStatusLabel();
+            toolStripDropDownButton1 = new ToolStripDropDownButton();
             toolStripStatusLabel7 = new ToolStripStatusLabel();
             toolStripStatusLabel8 = new ToolStripStatusLabel();
             ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
@@ -319,7 +321,7 @@
             // statusStrip1
             // 
             statusStrip1.ImageScalingSize = new Size(24, 24);
-            statusStrip1.Items.AddRange(new ToolStripItem[] { toolStripStatusLabel1, toolStripStatusLabel4, toolStripStatusLabel2, toolStripStatusLabel5, toolStripStatusLabel3, toolStripStatusLabel6, toolStripStatusLabel7, toolStripStatusLabel8 });
+            statusStrip1.Items.AddRange(new ToolStripItem[] { toolStripStatusLabel1, toolStripStatusLabel4, toolStripStatusLabel2, toolStripStatusLabel5, toolStripStatusLabel3, toolStripStatusLabel6, toolStripDropDownButton1, toolStripStatusLabel7, toolStripStatusLabel8 });
             statusStrip1.Location = new Point(0, 1197);
             statusStrip1.Name = "statusStrip1";
             statusStrip1.Size = new Size(1640, 36);
@@ -375,11 +377,23 @@
             toolStripStatusLabel6.Text = "0";
             toolStripStatusLabel6.TextAlign = ContentAlignment.MiddleRight;
             // 
+            // toolStripDropDownButton1
+            // 
+            toolStripDropDownButton1.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            toolStripDropDownButton1.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            toolStripDropDownButton1.Image = (Image)resources.GetObject("toolStripDropDownButton1.Image");
+            toolStripDropDownButton1.ImageTransparentColor = Color.Magenta;
+            toolStripDropDownButton1.Name = "toolStripDropDownButton1";
+            toolStripDropDownButton1.Size = new Size(153, 33);
+            toolStripDropDownButton1.Text = "Sampling Rate";
+            toolStripDropDownButton1.TextImageRelation = TextImageRelation.Overlay;
+            // 
             // toolStripStatusLabel7
             // 
+            toolStripStatusLabel7.BorderSides = ToolStripStatusLabelBorderSides.Left;
             toolStripStatusLabel7.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             toolStripStatusLabel7.Name = "toolStripStatusLabel7";
-            toolStripStatusLabel7.Size = new Size(167, 29);
+            toolStripStatusLabel7.Size = new Size(171, 29);
             toolStripStatusLabel7.Text = "Connection Status";
             // 
             // toolStripStatusLabel8
@@ -446,5 +460,6 @@
         private ToolStripStatusLabel toolStripStatusLabel7;
         private ToolStripStatusLabel toolStripStatusLabel8;
         private CheckBox checkBox5;
+        private ToolStripDropDownButton toolStripDropDownButton1;
     }
 }
