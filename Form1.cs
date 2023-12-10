@@ -19,6 +19,7 @@ using System;
 using System.Collections.Generic;
 using SaleaeDeviceSdkDotNet;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+using System.Security.Cryptography;
 
 
 namespace CGATest
@@ -91,7 +92,6 @@ namespace CGATest
             ftTimer.Start();
 
             pictureBox1.SizeMode = PictureBoxSizeMode.CenterImage;
-
         }
 
 
@@ -180,7 +180,7 @@ namespace CGATest
                     if (restartRequired)
                     {
                         mLogic.ReadStart(); 
-                        toolStripStatusLabel8.Text = "Connected to Logic with " + mLogic.SampleRateHz + "Hz";
+                        toolStripStatusLabel8.Text = "Connected to Logic with " + mLogic.SampleRateHz + " Hz";
                     }
                     restartRequired = false;
                     Thread.Sleep(10);
@@ -251,17 +251,21 @@ namespace CGATest
                     sample_rates = mLogic16.GetSupportedSampleRates();
 
 
-                //Sample Rates
+                //Sample Rate Display
                 for (int i = 0; i < sample_rates.Count; ++i)
                 {
                     uint newSampleRate = sample_rates[i];
-                    ToolStripItem item = toolStripDropDownButton1.DropDownItems.Add(string.Format(sample_rates[i].ToString(), newSampleRate ), null, new EventHandler(SetSamplingRate));
+
+                    double userfriendlyRate = (double)(newSampleRate / 1000000.0);
+                    string sampleUnit = " MHz";
+                    if (userfriendlyRate < 1) {userfriendlyRate = userfriendlyRate * 1000.0; sampleUnit = " KHz"; }
+                    string rateDescription = userfriendlyRate.ToString() + sampleUnit;
+                    ToolStripItem item = toolStripDropDownButton1.DropDownItems.Add(/*string.Format(sample_rates[i].ToString()*/string.Format("{0,6}",rateDescription, newSampleRate ), null, new EventHandler(SetSamplingRate));
                     item.Tag = newSampleRate;
                 }
 
-
                 toolStripStatusLabel8.ForeColor = Color.Green;
-                toolStripStatusLabel8.Text = "Connected to Logic with " + mSampleRateHz + "Hz";
+                toolStripStatusLabel8.Text = "Connected to Logic with " + mSampleRateHz + " Hz";
 
                 if (mLogic != null)
                     mLogic.ReadStart();
@@ -284,7 +288,7 @@ namespace CGATest
             // If finished, clean up threads
             if (Handler_TBufferInput != null) CTSTBufferInput.Cancel();
             if (Handler_TSaleaeWatchdog != null) CTSTSaleaeWatchdog.Cancel();
-            //if (Handler_TShowPic != null) CTSshowpic.Cancel();
+            if (Handler_TShowPic != null) CTSshowpic.Cancel();
         }
 
         //Saleae
@@ -303,7 +307,6 @@ namespace CGATest
 
             mLogic = logic;
             mLogic.OnReadData += new MLogic.OnReadDataDelegate(mLogic_OnReadData);
-            mLogic.OnWriteData += new MLogic.OnWriteDataDelegate(mLogic_OnWriteData);
             mLogic.OnError += new MLogic.OnErrorDelegate(mLogic_OnError);
             mLogic.SampleRateHz = mSampleRateHz;
         }
@@ -332,17 +335,6 @@ namespace CGATest
         void mLogic16_OnReadData(ulong device_id, byte[] data)
         {
             Console.WriteLine("Logic16: Read {0} bytes, starting with 0x{1:X}", data.Length, data[0]);
-        }
-
-        void mLogic_OnWriteData(ulong device_id, byte[] data)
-        {
-            for (int i = 0; i < data.Length; i++)
-            {
-                data[i] = mWriteValue;
-                mWriteValue++;
-            }
-
-            Console.WriteLine("Wrote {0} bytes of data", data.Length);
         }
 
         void mLogic_OnError(ulong device_id)
@@ -375,13 +367,11 @@ namespace CGATest
                 if (newpic != null) // Valid picture received, extract only the area which has data in it
                 {
                     RectangleF cloneRect = new RectangleF(0, 0, xposmax_b, yposmax_b);
-                    //if (newpic.Height > 5) newframe = (Bitmap)newpic.Clone(cloneRect, PixelFormat.DontCare);
                     newframe = (Bitmap)newpic.Clone();
                     newpic.Dispose();
 
                     newframeisready = true;
                 }
-
                 //Remember bitmap size to use small bitmaps later. This speeds up things.
                 xposmax_b = xposmax; yposmax_b = yposmax;
 
@@ -546,7 +536,7 @@ namespace CGATest
                                 sync_long = syncpulses;
                             }
 
-                            // If we just got a smal sync, arm the system for an upcoming hsync
+                            // If we just got a small sync, arm the system for an upcoming hsync
                             if (syncpulses > 0 && syncpulses < (sync_long / 10))
                             {
                                 armed = true;
@@ -610,15 +600,20 @@ namespace CGATest
                                 xpos = 0;
 
                                 //Quality
-                                // Do we have a substantial change but not a hsync (in case of composite)
-                                if (hsync_p > (hduration + 1) && hsync_p < (hduration * 3)) { /*Console.WriteLine("reset jitter"+hduration+":"+hsync_p);*/ hduration = hsync_p; }
-                                // Find the shortest hsync pulse
-                                if (hsync_p < hduration) hduration = hsync_p;
-                                // If there is jitter, skip pixels
-                                xoffset = (hsync_p - hduration);
-                                xpos = xoffset;
+                                //Filter for vsync in the composite mixed sync signal 
+                                if (hsync_p < (hduration * 3))
+                                {
+                                    // Accomodate signal change if required
+                                    if (hsync_p > (hduration + 1)) hduration = hsync_p;
+                                    // Find the shortest hsync pulse
+                                    if (hsync_p < hduration) hduration = hsync_p;
+                                    // If there is jitter, skip pixels
+                                    xoffset = (hsync_p - hduration);
+                                    //Sanity Check, offset shouldn't exceed hsync pulse length
+                                    if (xoffset > hduration) hduration = hsync_p;
+                                    xpos = xoffset;
+                                }
                                 hsync_p = 0;
-
                             }
                             else // No sync and no recent changes: Set horizontal pixels
                             {
@@ -634,9 +629,9 @@ namespace CGATest
 
                                         if (smoothing)
                                         {
-                                            if (!(blue == bline[xpos, ypos])) setblue = bline[xpos - xoffset, ypos];
-                                            if (!(green == gline[xpos, ypos])) setgreen = gline[xpos - xoffset, ypos];
-                                            if (!(red == rline[xpos, ypos])) setred = rline[xpos - xoffset, ypos];
+                                            if (!(blue == bline[xpos , ypos])) setblue = bline[xpos  , ypos];
+                                            if (!(green == gline[xpos , ypos])) setgreen = gline[xpos , ypos];
+                                            if (!(red == rline[xpos , ypos])) setred = rline[xpos , ypos];
                                         }
 
                                         ptr[(xpos * 3) + ypos * stride] = setblue;
@@ -682,7 +677,7 @@ namespace CGATest
 
         }
 
-               private void reset()
+        private void reset()
         {
             // Reset 
             syncpulses = 0; sync_long = 0;
