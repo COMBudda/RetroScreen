@@ -68,7 +68,6 @@ namespace CGATest
         UInt32 mSampleRateHz = 24000000;
         MLogic mLogic;
         MLogic16 mLogic16;
-        byte mWriteValue = 0;
         bool restartRequired = true;
 
         // vsync_polarity handling
@@ -79,6 +78,7 @@ namespace CGATest
         //Test quality
         int hduration = 9999;
         bool smoothing = false;
+        int smoothingLevel = 0;
 
         public Form1()
         {
@@ -104,7 +104,7 @@ namespace CGATest
             screens = 0;
         }
 
-        
+
         private async void TShowPic(object? obj)
         {
             Bitmap? resized = null;
@@ -127,7 +127,7 @@ namespace CGATest
                             pictureBox1.Image = (Bitmap)resized.Clone();
                             resized.Dispose();
                         }
-                        
+
                         newframe.Dispose();
                         newframeisready = false;
                     }
@@ -137,7 +137,7 @@ namespace CGATest
             }
             );
         }
-        
+
 
         // Read input stream to buffer 
         private async void TBufferInput(object? o)
@@ -179,7 +179,7 @@ namespace CGATest
                 {
                     if (restartRequired)
                     {
-                        mLogic.ReadStart(); 
+                        mLogic.ReadStart();
                         toolStripStatusLabel8.Text = "Connected to Logic with " + mLogic.SampleRateHz + " Hz";
                     }
                     restartRequired = false;
@@ -258,9 +258,9 @@ namespace CGATest
 
                     double userfriendlyRate = (double)(newSampleRate / 1000000.0);
                     string sampleUnit = " MHz";
-                    if (userfriendlyRate < 1) {userfriendlyRate = userfriendlyRate * 1000.0; sampleUnit = " KHz"; }
+                    if (userfriendlyRate < 1) { userfriendlyRate = userfriendlyRate * 1000.0; sampleUnit = " KHz"; }
                     string rateDescription = userfriendlyRate.ToString() + sampleUnit;
-                    ToolStripItem item = toolStripDropDownButton1.DropDownItems.Add(/*string.Format(sample_rates[i].ToString()*/string.Format("{0,6}",rateDescription, newSampleRate ), null, new EventHandler(SetSamplingRate));
+                    ToolStripItem item = toolStripDropDownButton1.DropDownItems.Add(/*string.Format(sample_rates[i].ToString()*/string.Format("{0,6}", rateDescription, newSampleRate), null, new EventHandler(SetSamplingRate));
                     item.Tag = newSampleRate;
                 }
 
@@ -366,12 +366,17 @@ namespace CGATest
 
                 if (newpic != null) // Valid picture received, extract only the area which has data in it
                 {
-                    RectangleF cloneRect = new RectangleF(0, 0, xposmax_b, yposmax_b);
-                    newframe = (Bitmap)newpic.Clone();
-                    newpic.Dispose();
+                    try
+                    {
+                        RectangleF cloneRect = new RectangleF(0, 0, xposmax_b, yposmax_b);
+                        newframe = (Bitmap)newpic.Clone();
 
-                    newframeisready = true;
+                        newframeisready = true;
+                    }
+                    catch { };
+                    newpic.Dispose();
                 }
+
                 //Remember bitmap size to use small bitmaps later. This speeds up things.
                 xposmax_b = xposmax; yposmax_b = yposmax;
 
@@ -388,7 +393,7 @@ namespace CGATest
 
         private async Task<Bitmap> CreatePicture(object sender, EventArgs e)
         {
-            Bitmap bmp = new Bitmap((xposmax_b > 10  ? xposmax : 10), (yposmax_b > 10 ? yposmax_b : 10));
+            Bitmap bmp = new Bitmap((xposmax_b > 10 ? xposmax : 10), (yposmax_b > 10 ? yposmax_b : 10));
 
             int readchar, readFail;
             int rawdata = 0;
@@ -416,6 +421,9 @@ namespace CGATest
             BitmapData data = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, PixelFormat.Format24bppRgb);
             int stride = data.Stride;
             //experiment
+
+            //??? Real max value for consitent frame size
+            xposmax = 0;
 
             await Task.Run(() =>
             {
@@ -593,15 +601,18 @@ namespace CGATest
                             if (hsyncc) // Just coming from a hsync signal, new line
                             {
 
-                                // expectation setting and limiter
-                                xposmax = xpos;
+
+                                //Real x-max value for consitent frame size
+                                if (xpos > xposmax) { xposmax = xpos; }
+
                                 // new line and reset horizontal
                                 if (ypos < height) ypos++;
                                 xpos = 0;
 
                                 //Quality
-                                //Filter for vsync in the composite mixed sync signal 
-                                if (hsync_p < (hduration * 3))
+                                //IF-Then as a filter for vsync in the composite mixed sync signal 
+
+                                if (hsync_p < (hduration * 3) && true)
                                 {
                                     // Accomodate signal change if required
                                     if (hsync_p > (hduration + 1)) hduration = hsync_p;
@@ -617,7 +628,7 @@ namespace CGATest
                             }
                             else // No sync and no recent changes: Set horizontal pixels
                             {
-                                if (xpos > 0 && xpos < width && xpos < xposmax_b && ypos < yposmax_b ) // Within defined bitmap ?
+                                if (xpos > 0 && xpos < width && xpos < xposmax_b && ypos < yposmax_b) // Within defined bitmap ?
                                 {
                                     byte setblue = blue;
                                     byte setgreen = green;
@@ -629,9 +640,9 @@ namespace CGATest
 
                                         if (smoothing)
                                         {
-                                            if (!(blue == bline[xpos , ypos])) setblue = bline[xpos  , ypos];
-                                            if (!(green == gline[xpos , ypos])) setgreen = gline[xpos , ypos];
-                                            if (!(red == rline[xpos , ypos])) setred = rline[xpos , ypos];
+                                            if (!(blue == bline[xpos, ypos])) setblue = bline[xpos, ypos];
+                                            if (!(green == gline[xpos, ypos])) setgreen = gline[xpos, ypos];
+                                            if (!(red == rline[xpos, ypos])) setred = rline[xpos, ypos];
                                         }
 
                                         ptr[(xpos * 3) + ypos * stride] = setblue;
@@ -641,9 +652,9 @@ namespace CGATest
 
                                     if (smoothing)
                                     {
-                                        bline[xpos, ypos] = (byte)((setblue * 2 + blue) / 3);
-                                        gline[xpos, ypos] = (byte)((setgreen * 2 + green) / 3);
-                                        rline[xpos, ypos] = (byte)((setred * 2 + red) / 3);
+                                        bline[xpos, ypos] = (byte)((setblue * smoothingLevel + blue) / (smoothingLevel + 1));
+                                        gline[xpos, ypos] = (byte)((setgreen * smoothingLevel + green) / (smoothingLevel + 1));
+                                        rline[xpos, ypos] = (byte)((setred * smoothingLevel + red) / (smoothingLevel + 1));
                                     }
                                     xpos++;
                                 }
@@ -663,7 +674,7 @@ namespace CGATest
             // Visualize parameters
             TB1 = xposmax_b;
             TB2 = yposmax_b;
-            
+
             if (xposmax_b < 10 || yposmax_b < 10 || endofstream) return null; // received frame is too small or stream stopped, discard
             else
             {
@@ -673,7 +684,7 @@ namespace CGATest
 
                 return bmp;
             }
-            
+
 
         }
 
@@ -791,12 +802,6 @@ namespace CGATest
             endofstream = true;
         }
 
-        private void checkBox5_CheckedChanged(object sender, EventArgs e)
-        {
-            smoothing = !smoothing;
-            checkBox5.Checked = smoothing;
-        }
-
         private void SetSamplingRate(object sender, EventArgs e)
         {
             ToolStripItem item = (ToolStripItem)sender;
@@ -806,6 +811,17 @@ namespace CGATest
             mLogic.SampleRateHz = newRate;
             restartRequired = true;
         }
-}
+
+        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            smoothingLevel = comboBox1.SelectedIndex;
+            if (smoothingLevel == 0) { smoothing = false; } else smoothing = true;
+        }
+
+        private void label1_Click(object sender, EventArgs e)
+        {
+
+        }
+    }
 
 }
