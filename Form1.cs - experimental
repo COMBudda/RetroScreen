@@ -35,6 +35,13 @@ namespace CGATest
         byte[] gframe = new byte[width * height];
         byte[] rframe = new byte[width * height];
 
+        //???
+        byte[] gline = new byte[width];
+        byte[] rline = new byte[width];
+        byte[] bline = new byte[width];
+
+
+
         public volatile StreamReader vIn;
         public volatile ConcurrentQueue<int> bufferedData = new ConcurrentQueue<int>();
 
@@ -44,7 +51,6 @@ namespace CGATest
         public volatile int TB1 = 0, TB2 = 0, TB3 = 0, screens = 0;
 
         int xposmax = 0, yposmax = 0, xposmax_b = 1, yposmax_b = 1;
-        int xoffset = 0;
 
 
         int hsync_filterbits = 7, vsync_filterbits = 7;
@@ -81,20 +87,6 @@ namespace CGATest
         int hduration = 9999;
         bool smoothing = false;
         int smoothingLevel = 0;
-        bool alternateStabilizerMode = false;
-
-        //???
-        const int sclk = 24000000;
-        //int pclk = 7155140;
-        //int pclk = 7159090;
-        int pclk = 14318180;
-        int erracc = sclk;
-        int phase = 100;
-
-        double lf = 4.9577;
-        double lr = 1;
-        int pixelno = 0;
-        bool updown = true;
 
         public Form1()
         {
@@ -109,6 +101,7 @@ namespace CGATest
 
 
             pictureBox1.SizeMode = PictureBoxSizeMode.CenterImage;
+
         }
 
 
@@ -387,11 +380,12 @@ namespace CGATest
                     {
                         RectangleF cloneRect = new RectangleF(0, 0, xposmax_b, yposmax_b);
                         newframe = (Bitmap)newpic.Clone();
-
+                        Console.WriteLine("Fram");
                         newframeisready = true;
+
+                        newpic.Dispose();
                     }
                     catch { };
-                    newpic.Dispose();
                 }
 
                 //Remember bitmap size to use small bitmaps later. This speeds up things.
@@ -417,7 +411,7 @@ namespace CGATest
             bool hsync_raw = false, vsync_raw = false;
             bool hsync = false, vsync = false;
             bool vsyncc = false, hsyncc = false;
-            int xpos = xoffset, ypos = 0;
+            int xpos = 0, ypos = 0;
             int color;
             int hsync_filter = 0, vsync_filter = 0;
             // Vsync inverted auto handling
@@ -435,8 +429,8 @@ namespace CGATest
             int stride = data.Stride;
             //experiment
 
-            //For Alternate Stabilizer Mode 
-            byte r2 = 0, g2 = 0, b2 = 0, r1 = 0, g1 = 0, b1 = 0;
+            //???
+            bool lineready = false;
 
             //Real max value for consitent frame size
             xposmax = 0;
@@ -514,11 +508,6 @@ namespace CGATest
                     color = color >> 1;
                     blueH = (byte)(color & 1);
 
-                    //For Alternate Stabilizer Mode 
-                    r2 = r1; g2 = g1; b2 = b1;
-                    r1 = red; g1 = green; b1 = blue;
-                    //End For Alternate Stabilizer Mode 
-
                     switch (colorMode)
                     {
                         case 0: //Basic RGB is just one intensity level, fails for MDA
@@ -533,8 +522,6 @@ namespace CGATest
                             red = (byte)((redL * 170) + (greenH * 85));
                             green = (byte)((greenL * 170) + (greenH * 85));
                             blue = (byte)((blueL * 170) + (greenH * 85));
-                            //Special CGA Brown handling
-                            if (blue == 0 && red == 170 && green == 170) green = 85;
                             break;
                         case 3: // For EGA
                             green = (byte)(85 * ((greenL) | (greenH << 1)));
@@ -542,6 +529,7 @@ namespace CGATest
                             red = (byte)(85 * ((redL) | (redH << 1)));
                             break;
                     }
+
 
                     // Remove Sync Noise by scanning 3 subsequent signals (filterbits set to b111 dec7
 
@@ -620,39 +608,102 @@ namespace CGATest
 
                         if (!hsync) // Outside hsync cyle
                         {
+                            int xoffset = 0;
                             if (hsyncc) // Just coming from a hsync signal, new line
                             {
-                                //Real x-max value for consitent frame size
-                                if (xpos > xposmax) { xposmax = xpos; }
+
+                                //???
+
+                                if (lineready)
+                                {
+
+                                    Console.WriteLine("hs");
+                                    unsafe
+                                    {
+                                        byte* ptr = (byte*)data.Scan0;
+                                        for (int x = 1; x < xpos; x++)
+                                        {
+                                            byte g = gline[x];
+                                            byte r = rline[x];
+                                            byte b = bline[x];
+
+
+                                            if (g != gframe[x + 1500 * ypos])
+                                            {
+                                                if (gline[x - 1] == gframe[x - 1 + 1500 * ypos])
+                                                {
+                                                    if ((gline[x + 1]) == gframe[x + 1 + 1500 * ypos])
+                                                    {
+                                                        if (gframe[x - 1 + 1500 * ypos] == g) g = gline[x + 1];
+                                                        else
+                                                            g = gline[x - 1];
+                                                    }
+                                                }
+                                            }
+
+                                            if (r != rframe[x + 1500 * ypos])
+                                            {
+                                                if (rline[x - 1] == rframe[x - 1 + 1500 * ypos])
+                                                {
+                                                    if ((rline[x + 1]) == rframe[x + 1 + 1500 * ypos])
+                                                    {
+                                                        if (rframe[x - 1 + 1500 * ypos] == r) r = rline[x + 1];
+                                                        else
+                                                            r = rline[x - 1];
+                                                    }
+                                                }
+                                            }
+
+                                            if (b != bframe[x + 1500 * ypos])
+                                            {
+                                                if (bline[x - 1] == bframe[x - 1 + 1500 * ypos])
+                                                {
+                                                    if ((bline[x + 1]) == bframe[x + 1 + 1500 * ypos])
+                                                    {
+                                                        if (bframe[x - 1 + 1500 * ypos] == b) b = bline[x + 1];
+                                                        else
+                                                            b = bline[x - 1];
+                                                    }
+                                                }
+                                            }
+
+                                            gframe[x + 1500 * ypos] = g;
+                                            rframe[x + 1500 * ypos] = r;
+                                            bframe[x + 1500 * ypos] = b;
+
+
+                                            ptr[(x * 3) + ypos * stride + 1] = g;
+                                            ptr[(x * 3) + ypos * stride + 2] = r;
+                                            ptr[(x * 3) + ypos * stride] = b;
+
+                                        }
+                                        lineready = false;
+                                    }
+                                }
+                            
+                            //Real x-max value for consitent frame size
+                            if (xpos > xposmax) { xposmax = xpos; }
 
                                 // new line and reset horizontal
                                 if (ypos < height) ypos++;
-                                xpos = xoffset;
+                                xpos = 0;
 
                                 //Quality
                                 //IF-Then as a filter for vsync in the composite mixed sync signal 
 
-                                if (true && !alternateStabilizerMode)
+                                if (hsync_p < (hduration * 3) && true)
                                 {
-                                    int xshift = 0;
-
-                                    if (hsync_p < (hduration * 3) && true)
-                                    {
-                                        // Accomodate signal change if required
-                                        if (hsync_p > (hduration + 1)) hduration = hsync_p;
-                                        // Find the shortest hsync pulse
-                                        if (hsync_p < hduration) hduration = hsync_p;
-                                        // If there is jitter, skip pixels
-                                        xshift = (hsync_p - hduration);
-                                        //Sanity Check, offset shouldn't exceed hsync pulse length
-                                        if (xshift > hduration) hduration = hsync_p;
-                                        xpos = xshift;
-                                    }
-                                    hsync_p = 0;
+                                    // Accomodate signal change if required
+                                    if (hsync_p > (hduration + 1)) hduration = hsync_p;
+                                    // Find the shortest hsync pulse
+                                    if (hsync_p < hduration) hduration = hsync_p;
+                                    // If there is jitter, skip pixels
+                                    xoffset = (hsync_p - hduration);
+                                    //Sanity Check, offset shouldn't exceed hsync pulse length
+                                    if (xoffset > hduration) hduration = hsync_p;
+                                    xpos = xoffset;
                                 }
-                                erracc = sclk + phase;
-
-
+                                hsync_p = 0;
                             }
                             else // No sync and no recent changes: Set horizontal pixels
                             {
@@ -662,56 +713,6 @@ namespace CGATest
 
                                 if (xpos < xposmax_b && ypos < yposmax_b) // Within defined bitmap ?
                                 {
-
-                                    //Alternate Stabilizer
-                                    if (alternateStabilizerMode)
-                                    {
-                                        if (g1 != gframe[xpos - 1 + 1500 * ypos])
-                                        {
-                                            if (g2 == gframe[xpos - 2 + 1500 * ypos])
-                                            {
-                                                if (green == gframe[xpos + 1500 * ypos])
-                                                {
-                                                    if (gframe[xpos - 2 + 1500 * ypos] == g1) g1 = green;
-                                                    else
-                                                        g1 = g2;
-                                                }
-                                            }
-                                        }
-                                        if (b1 != bframe[xpos - 1 + 1500 * ypos])
-                                        {
-                                            if (b2 == bframe[xpos - 2 + 1500 * ypos])
-                                            {
-                                                if (blue == bframe[xpos + 1500 * ypos])
-                                                {
-                                                    if (bframe[xpos - 2 + 1500 * ypos] == b1) b1 = blue;
-                                                    else
-                                                        b1 = b2;
-                                                }
-                                            }
-                                        }
-                                        if (r1 != rframe[xpos - 1 + 1500 * ypos])
-                                        {
-                                            if (r2 == rframe[xpos - 2 + 1500 * ypos])
-                                            {
-                                                if (red == rframe[xpos + 1500 * ypos])
-                                                {
-                                                    if (rframe[xpos - 2 + 1500 * ypos] == r1) r1 = red;
-                                                    else
-                                                        r1 = r2;
-                                                }
-                                            }
-                                        }
-                                        setred = r1;
-                                        setblue = b1;
-                                        setgreen = g1;
-
-                                        gframe[xpos -1 + 1500 * ypos] = setgreen;
-                                        rframe[xpos -1 + 1500 * ypos] = setred;
-                                        bframe[xpos -1+ 1500 * ypos] = setblue;
-                                    }
-                                    // End Alternate Stabilzer Mode
-
                                     if (smoothing)
                                     {
                                         if (!(blue == bframe[xpos + 1500 * ypos])) setblue = bframe[xpos + 1500 * ypos];
@@ -722,23 +723,24 @@ namespace CGATest
                                         gframe[xpos + 1500 * ypos] = (byte)((setgreen * smoothingLevel + green) / (smoothingLevel + 1));
                                         rframe[xpos + 1500 * ypos] = (byte)((setred * smoothingLevel + red) / (smoothingLevel + 1));
                                     }
-
-                                   
+                                    
+                                    /*
                                     unsafe
                                     {
                                         byte* ptr = (byte*)data.Scan0;
-                                        int pixelShift = (alternateStabilizerMode ? 2 : 0);
-                                        ptr[((xpos - pixelShift) * 3) + ypos * stride + 1] = setgreen;
-                                        ptr[((xpos - pixelShift) * 3) + ypos * stride + 2] = setred;
-                                        ptr[((xpos - pixelShift) * 3) + ypos * stride] = setblue;
 
-                                        ptr[((xpos + 1 - pixelShift) * 3) + ypos * stride + 1] = setgreen;
-                                        ptr[((xpos + 1 - pixelShift) * 3) + ypos * stride + 2] = setred;
-                                        ptr[((xpos + 1 - pixelShift) * 3) + ypos * stride] = setblue;
+                                        ptr[(xpos * 3) + ypos * stride + 1] = setgreen;
+                                        ptr[(xpos * 3) + ypos * stride + 2] = setred;
+                                        ptr[(xpos * 3) + ypos * stride] = setblue;
                                     }
+                                    */
+
+                                    //???
+                                    gline[xpos] = setgreen;
+                                    rline[xpos] = setred;
+                                    bline[xpos] = setblue;
+                                    lineready = true;
                                     
-
-
                                 }
                                 if (xpos < width) xpos++; // Even if no pixel are set, we are still interested in the high value
                             }
@@ -898,24 +900,6 @@ namespace CGATest
         {
             smoothingLevel = comboBox1.SelectedIndex;
             if (smoothingLevel == 0) { smoothing = false; } else smoothing = true;
-        }
-
-        private void checkBox5_CheckedChanged(object sender, EventArgs e)
-        {
-            if (checkBox5.Checked)
-            {
-                alternateStabilizerMode = true;
-                xoffset = 2;
-                comboBox1.Enabled = false;
-                smoothing = false;
-            }
-            else
-            {
-                alternateStabilizerMode = false;
-                xoffset = 0;
-                comboBox1.Enabled = true;
-                smoothing = false;
-            }
         }
 
     }

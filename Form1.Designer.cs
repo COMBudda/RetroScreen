@@ -34,6 +34,8 @@
             radioButton1 = new RadioButton();
             timer1 = new System.Windows.Forms.Timer(components);
             panel1 = new Panel();
+            checkBox5 = new CheckBox();
+            label6 = new Label();
             label3 = new Label();
             label2 = new Label();
             label1 = new Label();
@@ -98,6 +100,8 @@
             // panel1
             // 
             panel1.BorderStyle = BorderStyle.Fixed3D;
+            panel1.Controls.Add(checkBox5);
+            panel1.Controls.Add(label6);
             panel1.Controls.Add(label3);
             panel1.Controls.Add(label2);
             panel1.Controls.Add(label1);
@@ -114,6 +118,26 @@
             panel1.Name = "panel1";
             panel1.Size = new Size(222, 1233);
             panel1.TabIndex = 7;
+            // 
+            // checkBox5
+            // 
+            checkBox5.AutoSize = true;
+            checkBox5.Location = new Point(152, 324);
+            checkBox5.Name = "checkBox5";
+            checkBox5.Size = new Size(22, 21);
+            checkBox5.TabIndex = 27;
+            checkBox5.UseVisualStyleBackColor = true;
+            checkBox5.CheckedChanged += checkBox5_CheckedChanged;
+            // 
+            // label6
+            // 
+            label6.AutoSize = true;
+            label6.Font = new Font("Segoe UI", 8F);
+            label6.Location = new Point(20, 303);
+            label6.Name = "label6";
+            label6.Size = new Size(110, 63);
+            label6.TabIndex = 26;
+            label6.Text = "Alternate\r\nStabilizer\r\n(Experimental)";
             // 
             // label3
             // 
@@ -142,7 +166,6 @@
             label1.Size = new Size(87, 42);
             label1.TabIndex = 23;
             label1.Text = "Smoothing\r\nLevel";
-            label1.Click += label1_Click;
             // 
             // comboBox1
             // 
@@ -176,7 +199,7 @@
             groupBox3.Controls.Add(radioButton6);
             groupBox3.Controls.Add(textBox6);
             groupBox3.Controls.Add(textBox5);
-            groupBox3.Location = new Point(0, 510);
+            groupBox3.Location = new Point(0, 570);
             groupBox3.Name = "groupBox3";
             groupBox3.Size = new Size(218, 229);
             groupBox3.TabIndex = 18;
@@ -252,7 +275,7 @@
             groupBox1.Controls.Add(radioButton4);
             groupBox1.Controls.Add(radioButton3);
             groupBox1.Controls.Add(radioButton2);
-            groupBox1.Location = new Point(0, 316);
+            groupBox1.Location = new Point(0, 376);
             groupBox1.Name = "groupBox1";
             groupBox1.Size = new Size(218, 194);
             groupBox1.TabIndex = 13;
@@ -484,5 +507,7 @@
         private Label label1;
         private Label label2;
         private Label label3;
+        private Label label6;
+        private CheckBox checkBox5;
     }
 }
